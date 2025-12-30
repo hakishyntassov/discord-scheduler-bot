@@ -2,7 +2,7 @@
 from collections import Counter
 from typing import List, Tuple
 
-DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+DAY_NAMES = ["M", "T", "W", "R", "F", "S", "SU"]
 
 def compute_best_overlaps(
     participants: List[int],
