@@ -10,7 +10,6 @@ class SchedulerBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        await self.tree.sync()
         self.add_view(ScheduleView())
         # Load cogs
         await self.load_extension("cogs.scheduling")
