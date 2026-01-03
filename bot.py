@@ -66,6 +66,11 @@ async def on_message(message: discord.Message):
             delete_after=10
         )
         return
+    # Delete the user's message to hide the typed times
+    try:
+        await message.delete()
+    except discord.Forbidden:
+        pass  # bot lacks permission; fail silently
 
     # Save: overwrite that day's ranges for this user
     clear_day_ranges(message.guild.id, message.author.id, day)
