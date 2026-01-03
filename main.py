@@ -10,7 +10,7 @@ class SchedulerBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        self.add_view(ScheduleView())
+        self.add_view(SignupView())
         # Load cogs
         await self.load_extension("logic.scheduling")
         # Sync slash commands
