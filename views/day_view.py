@@ -18,10 +18,6 @@ class DayView(discord.ui.View):
         self.allowed_role_id = allowed_role_id
         self.allowed_user_ids = allowed_user_ids
 
-    @classmethod
-    def placeholder(cls):
-        # Needed for persistent view registration
-        return cls(0, 0)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:

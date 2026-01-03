@@ -14,7 +14,6 @@ class SchedulerBot(commands.Bot):
     async def setup_hook(self):
         # Register persistent views
         self.add_view(SignupView())
-        self.add_view(DayView.placeholder())
 
         # Load cogs
         await self.load_extension("cogs.scheduling")
