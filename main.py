@@ -25,3 +25,4 @@ async def schedule(interaction: discord.Interaction, title: str):
     )
 
 bot.run(TOKEN)
+print("BOT VERSION: 2025-01-30 v3")
