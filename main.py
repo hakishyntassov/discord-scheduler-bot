@@ -1,24 +1,27 @@
-import os
 import discord
 from discord.ext import commands
 from discord import app_commands
+from config import TOKEN
 
-class Client(commands.Bot):
+class SchedulerBot(commands.Bot):
+    def __init__(self):
+        intents = discord.Intents.default()
+        super().__init__(command_prefix="!", intents=intents)
+
+    async def setup_hook(self):
+        await self.tree.sync()
+
     async def on_ready(self):
-        print(f'Logged in as {self.user}')
+        print(f"Logged in as {self.user} (id={self.user.id})")
 
-    async def on_message(self, message):
-        if message.author == self.user:
-            return
-        if message.content.startswith('hello'):
-            await message.channel.send('Hi there!')
+bot = SchedulerBot()
 
-intents = discord.Intents.default()
-intents.message_content = True
-client = Client(command_prefix='/', intents=intents)
+@bot.tree.command(name="schedule", description="Create a scheduling session")
+@app_commands.describe(title="Title of the event")
+async def schedule(interaction: discord.Interaction, title: str):
+    await interaction.response.send_message(
+        f"📅 **Schedule created**\n\n**Event:** {title}",
+        ephemeral=False
+    )
 
-@client.tree.command(name="Hello", description="Say hi!")
-async def hello(interaction: discord.Interaction):
-    await interaction.response.send_message("Hi there!")
-
-client.run('MTQ1NTM3ODMzMzg0MjgwNDkwNQ.GCYITz.GUOKZS0A-chZuNcgADrw83a-57SEbAMxx6wJV0')
+bot.run(TOKEN)
