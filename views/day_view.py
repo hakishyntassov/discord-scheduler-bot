@@ -1,36 +1,25 @@
-# views/day_view.py
 import discord
 from config import DAY_NAMES
 
 class DayView(discord.ui.View):
-    def __init__(
-        self,
-        user_id: int,
-        day_index: int,
-        channel_id: int | None = None,
-        allowed_role_id: int | None = None,
-        allowed_user_ids: list[int] | None = None,
-    ):
-        super().__init__(timeout=None)
+    def __init__(self, user_id: int, day_index: int, channel_id: int | None = None):
+        super().__init__()
         self.user_id = user_id
         self.day_index = day_index
         self.channel_id = channel_id
-        self.allowed_role_id = allowed_role_id
-        self.allowed_user_ids = allowed_user_ids
-
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
             await interaction.response.send_message(
                 "❌ This scheduler is not for you.",
-                ephemeral=True,
+                ephemeral=True
             )
             return False
 
         if self.channel_id and interaction.channel_id != self.channel_id:
             await interaction.response.send_message(
                 "❌ Wrong channel.",
-                ephemeral=True,
+                ephemeral=True
             )
             return False
 
@@ -43,22 +32,20 @@ class DayView(discord.ui.View):
                 view=DayView(
                     user_id=self.user_id,
                     day_index=self.day_index + 1,
-                    channel_id=self.channel_id,
-                    allowed_role_id=self.allowed_role_id,
-                    allowed_user_ids=self.allowed_user_ids,
-                ),
+                    channel_id=self.channel_id
+                )
             )
         else:
             await interaction.message.edit(
                 content="✅ All days completed!",
-                view=None,
+                view=None
             )
 
     @discord.ui.button(label="Unavailable", style=discord.ButtonStyle.danger, row=0)
     async def unavailable(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message(
             f"{DAY_NAMES[self.day_index]} marked unavailable.",
-            ephemeral=True,
+            ephemeral=True
         )
         await self._advance(interaction)
 
