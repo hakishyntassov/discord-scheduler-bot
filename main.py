@@ -12,7 +12,7 @@ class SchedulerBot(commands.Bot):
     async def setup_hook(self):
         self.add_view(ScheduleView())
         # Load cogs
-        await self.load_extension("cogs.scheduling")
+        await self.load_extension("logic.scheduling")
         # Sync slash commands
         await self.tree.sync()
 
