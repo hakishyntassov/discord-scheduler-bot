@@ -1,8 +1,10 @@
+# main.py
 import discord
 from discord.ext import commands
-from discord import app_commands
+
 from config import TOKEN
-from views.schedule_views import SignupView
+from views.signup_view import SignupView
+from views.day_view import DayView
 
 class SchedulerBot(commands.Bot):
     def __init__(self):
@@ -10,15 +12,18 @@ class SchedulerBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
+        # Register persistent views
         self.add_view(SignupView())
+        self.add_view(DayView.placeholder())
+
         # Load cogs
-        await self.load_extension("logic.scheduling")
+        await self.load_extension("cogs.scheduling")
+
         # Sync slash commands
         await self.tree.sync()
 
     async def on_ready(self):
-        print(f"Logged in as {self.user} (id={self.user.id})")
+        print(f"Logged in as {self.user}")
 
 bot = SchedulerBot()
 bot.run(TOKEN)
-print("BOT VERSION: 2025-01-30 v3")
