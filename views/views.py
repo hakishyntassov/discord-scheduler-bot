@@ -7,8 +7,8 @@ class JoinButton(discord.ui.View):
         super().__init__() # Optional: set a timeout for the view
         self.title = title
 
-    @discord.ui.button(label="Join", style=discord.ButtonStyle.success)
-    async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="Join", style=discord.ButtonStyle.success, row=0)
+    async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
         try:
             dm = await user.create_dm()
@@ -29,8 +29,8 @@ class JoinButton(discord.ui.View):
                 ephemeral=True
             )
 
-    @discord.ui.button(label="Results", style=discord.ButtonStyle.danger)
-    async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="Results", style=discord.ButtonStyle.danger, row=0)
+    async def results_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
         await interaction.response.send_message(
             f"📩 Here are the results for **{self.title}** event!",
