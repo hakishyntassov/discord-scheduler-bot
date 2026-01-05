@@ -10,6 +10,7 @@ class JoinButton(discord.ui.View):
 
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success, row=0)
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()  # no visible reply
         user = interaction.user
         # prevent double-join
         if user.id in joined_users:
@@ -29,6 +30,7 @@ class JoinButton(discord.ui.View):
             value=str(len(joined_users)),
             inline=False
         )
+        await interaction.message.edit(embed=embed, view=self)
 
         try:
             await interaction.response.send_message(
@@ -47,9 +49,6 @@ class JoinButton(discord.ui.View):
                 "❌ I can’t DM you. Please enable DMs from server members.",
                 ephemeral=True
             )
-        await interaction.message.edit(embed=embed, view=self)
-        await interaction.response.defer()  # no visible reply
-
 
     @discord.ui.button(label="Results", style=discord.ButtonStyle.danger, row=0)
     async def results_button(self, interaction: discord.Interaction, button: discord.ui.Button):
