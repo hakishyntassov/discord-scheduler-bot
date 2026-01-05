@@ -3,6 +3,38 @@ from contextlib import contextmanager
 
 DB_PATH = "events.db"
 
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # events table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            channel_id INTEGER NOT NULL,
+            message_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    # event participants
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS event_joins (
+            event_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (event_id, user_id)
+        )
+        """
+    )
+
+    conn.commit()
+    conn.close()
+
 @contextmanager
 def get_cursor():
     conn = sqlite3.connect(DB_PATH)

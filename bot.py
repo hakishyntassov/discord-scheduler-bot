@@ -3,7 +3,7 @@ from discord.ext import commands
 from config import TOKEN
 from config import GUILD_ID
 from views.views import ScheduleView
-from db import add_event
+from db import init_db, add_event
 
 intents = discord.Intents.default()
 intents.members = True
@@ -60,5 +60,5 @@ async def schedule(interaction: discord.Interaction, title: str):
     )
     view = ScheduleView(title=title, event_id=event_id)
     await message.edit(view=view)
-
+init_db()
 bot.run(TOKEN)
