@@ -5,6 +5,7 @@ from config import GUILD_ID
 from views.views import JoinButton
 
 intents = discord.Intents.default()
+intents.members = True
 intents.message_content = True
 
 bot = commands.Bot(command_prefix='$', intents=intents)
@@ -24,6 +25,9 @@ async def on_message(message):
 
 @bot.tree.command(name="schedule", description = "Schedule an event", guild=discord.Object(id=GUILD_ID))
 async def schedule(interaction: discord.Interaction, title: str):
+    channel = interaction.channel
+    members = channel.members
+    count = len([m for m in channel.members if not m.bot])
     author = interaction.user.name
     embed = discord.Embed(
         title=f"Event: **{title}**",
@@ -32,7 +36,8 @@ async def schedule(interaction: discord.Interaction, title: str):
             "**Instructions**\n"
             "• Select the days you are available\n"
             "• Submit your selections\n"
-            "• Results will be sent automatically"
+            "• Results will be sent automatically\n"
+            f"• Number of members: **{count}**\n"
         ),
         color=discord.Color.blurple()
     )
