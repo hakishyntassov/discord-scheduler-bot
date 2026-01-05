@@ -21,8 +21,10 @@ async def on_message(message):
 
 bot = commands.Bot(command_prefix='$', intents=intents)
 
-@bot.command()
+@commands.command()
 async def test(ctx, arg):
     await ctx.send(arg)
+
+bot.add_command(test)
 
 client.run(TOKEN)
