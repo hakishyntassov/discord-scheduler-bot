@@ -2,15 +2,12 @@ import discord
 from discord.ext import commands
 from config import TOKEN
 from config import GUILD_ID
+from views.views import JoinButton
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix='$', intents=intents)
-
-@bot.tree.command(name="schedule", description = "Schedule an event", guild=discord.Object(id=GUILD_ID))
-async def schedule(interaction: discord.Interaction, title: str):
-    await interaction.response.send_message(f"{bot.user} created an event: {title}")
 
 @bot.event
 async def on_ready():
@@ -24,5 +21,10 @@ async def on_message(message):
 
     if message.content.startswith('$hello'):
         await message.channel.send('Hello!')
+
+@bot.tree.command(name="schedule", description = "Schedule an event", guild=discord.Object(id=GUILD_ID))
+async def schedule(interaction: discord.Interaction, title: str):
+    view = JoinButton()
+    await interaction.response.send_message(f"{bot.user} created an event: {title}", view=view)
 
 bot.run(TOKEN)
