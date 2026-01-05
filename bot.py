@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 from config import TOKEN
 from config import GUILD_ID
-from views.views import JoinButton
+from views.views import ScheduleView
+from db import add_event
 
 intents = discord.Intents.default()
 intents.members = True
@@ -46,10 +47,18 @@ async def schedule(interaction: discord.Interaction, title: str):
         value="0",
         inline=False
     )
-    view = JoinButton(title=title)
-    await interaction.response.send_message(
-        embed=embed,
-        view=view
+
+    # 1️⃣ send embed FIRST (no view yet)
+    await interaction.response.send_message(embed=embed)
+
+    # 2️⃣ get the message object
+    message = await interaction.original_response()
+    event_id = add_event(
+        title=title,
+        channel_id=interaction.channel.id,
+        message_id=message.id
     )
+    view = ScheduleView(title=title, event_id=event_id)
+    await message.edit(view=view)
 
 bot.run(TOKEN)

@@ -1,33 +1,34 @@
 import asyncio
 import discord
 from discord.ext import commands
-joined_users: set[int] = set()
+from db import add_join, count_joins, user_in_event
 
-class JoinButton(discord.ui.View):
-    def __init__(self, title):
+class ScheduleView(discord.ui.View):
+    def __init__(self, title, event_id):
         super().__init__() # Optional: set a timeout for the view
         self.title = title
+        self.event_id = event_id
 
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success, row=0)
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)  # no visible reply
-
         user = interaction.user
         # prevent double-join
-        if user.id in joined_users:
-            await interaction.response.send_message(
+        if user_in_event(self.event_id, user.id):
+            await interaction.followup.send(
                 "You already joined.",
                 ephemeral=True
             )
             return
         else:
             try:
-                joined_users.add(interaction.user.id)
+                add_join(self.event_id, user.id)
+                count = count_joins(self.event_id)
                 embed = interaction.message.embeds[0]
                 embed.set_field_at(
                     0,
                     name="👥 Joined",
-                    value=str(len(joined_users)),
+                    value=count,
                     inline=False
                 )
                 await interaction.message.edit(embed=embed, view=self)
