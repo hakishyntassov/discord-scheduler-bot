@@ -13,45 +13,42 @@ class JoinButton(discord.ui.View):
         await interaction.response.defer(ephemeral=True)  # no visible reply
 
         user = interaction.user
+        # prevent double-join
+        if user.id in joined_users:
+            await interaction.response.send_message(
+                "You already joined.",
+                ephemeral=True
+            )
+            return
+        else:
+            try:
+                joined_users.add(interaction.user.id)
+                embed = interaction.message.embeds[0]
+                embed.set_field_at(
+                    0,
+                    name="👥 Joined",
+                    value=str(len(joined_users)),
+                    inline=False
+                )
+                await interaction.message.edit(embed=embed, view=self)
 
-        try:
-            # prevent double-join
-            if user.id in joined_users:
-                await interaction.response.send_message(
-                    "You already joined.",
+                dm = await user.create_dm()
+                msg = await dm.send(
+                    f"👋 Hi! You joined **{self.title}** event.\n📩 Here’s your private scheduler form."
+                )
+                # optional confirmation (ephemeral)
+                await interaction.followup.send(
+                    f"📩 I’ve sent you a DM for **{self.title}**.",
                     ephemeral=True
                 )
-                return
-
-            joined_users.add(interaction.user.id)
-
-            # rebuild embed
-            embed = interaction.message.embeds[0]
-            embed.set_field_at(
-                0,
-                name="👥 Joined",
-                value=str(len(joined_users)),
-                inline=False
-            )
-            await interaction.message.edit(embed=embed, view=self)
-
-            dm = await user.create_dm()
-            msg = await dm.send(
-                f"👋 Hi! You joined **{self.title}** event.\n📩 Here’s your private scheduler form."
-            )
-            # optional confirmation (ephemeral)
-            await interaction.followup.send(
-                f"📩 I’ve sent you a DM for **{self.title}**.",
-                ephemeral=True
-            )
-            await asyncio.sleep(1800)
-            await msg.delete()
-        except discord.Forbidden:
-            # User has DMs closed
-            await interaction.followup.send(
-                "❌ I can’t DM you. Please enable DMs from server members.",
-                ephemeral=True
-            )
+                await asyncio.sleep(1800)
+                await msg.delete()
+            except discord.Forbidden:
+                # User has DMs closed
+                await interaction.followup.send(
+                    "❌ I can’t DM you. Please enable DMs from server members.",
+                    ephemeral=True
+                )
 
     @discord.ui.button(label="Results", style=discord.ButtonStyle.danger, row=0)
     async def results_button(self, interaction: discord.Interaction, button: discord.ui.Button):
