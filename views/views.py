@@ -15,7 +15,7 @@ class JoinButton(discord.ui.View):
             msg = await dm.send(
                 f"👋 Hi! You joined **{self.title}** event.\n📩 Here’s your private scheduler form."
             )
-            await asyncio.sleep(60)
+            await asyncio.sleep(3600)
             await msg.delete()
 
             await interaction.response.send_message(
@@ -28,3 +28,11 @@ class JoinButton(discord.ui.View):
                 "❌ I can’t DM you. Please enable DMs from server members.",
                 ephemeral=True
             )
+
+    @discord.ui.button(label="Results", style=discord.ButtonStyle.danger)
+    async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        user = interaction.user
+        await interaction.response.send_message(
+            f"📩 Here are the results for **{self.title}** event!",
+            ephemeral=True
+        )
