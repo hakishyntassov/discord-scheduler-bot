@@ -1,4 +1,5 @@
 import discord
+from discord.ext import commands
 from config import TOKEN
 
 intents = discord.Intents.default()
@@ -17,5 +18,12 @@ async def on_message(message):
 
     if message.content.startswith('$hello'):
         await message.channel.send('Hello!')
+
+bot = commands.Bot(command_prefix='$', intents=intents)
+
+@bot.command()
+async def test(ctx, arg1, arg2):
+    await ctx.send(f'You passed {arg1} and {arg2}')
+
 
 client.run(TOKEN)
