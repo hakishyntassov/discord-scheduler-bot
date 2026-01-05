@@ -37,6 +37,9 @@ async def schedule(interaction: discord.Interaction, title: str):
         color=discord.Color.blurple()
     )
     view = JoinButton(title=title)
-    await interaction.response.send_message(embed=embed, view=view)
+    await interaction.response.send_message(
+        embed=embed,
+        view=view
+    )
 
 bot.run(TOKEN)

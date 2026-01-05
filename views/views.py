@@ -1,9 +1,10 @@
+import asyncio
 import discord
 from discord.ext import commands
 
 class JoinButton(discord.ui.View):
     def __init__(self, title):
-        super().__init__(timeout=180) # Optional: set a timeout for the view
+        super().__init__() # Optional: set a timeout for the view
         self.title = title
 
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success)
@@ -11,9 +12,12 @@ class JoinButton(discord.ui.View):
         user = interaction.user
         try:
             dm = await user.create_dm()
-            await dm.send(
-                f"👋 Hi! You joined **{self.title}** event. Here’s your private scheduler form."
+            msg = await dm.send(
+                f"👋 Hi! You joined **{self.title}** event.\n📩 Here’s your private scheduler form."
             )
+            await asyncio.sleep(60)
+            await msg.delete()
+
             await interaction.response.send_message(
                 f"📩 You joined the **{self.title}** event!\n📩 I’ve sent you a DM!",
                 ephemeral=True
