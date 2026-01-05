@@ -8,4 +8,4 @@ class JoinButton(discord.ui.View):
 
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success)
     async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(f"You joined the {self.title} event!", ephemeral=True)
+        await interaction.response.send_message(f"You joined the **{self.title}** event!", ephemeral=True)

@@ -25,6 +25,7 @@ async def on_message(message):
 @bot.tree.command(name="schedule", description = "Schedule an event", guild=discord.Object(id=GUILD_ID))
 async def schedule(interaction: discord.Interaction, title: str):
     view = JoinButton(title=title)
-    await interaction.response.send_message(f"{bot.user} created an event: {title}", view=view)
+    author = interaction.user.name
+    await interaction.response.send_message(f"{author} created an event: {title}", view=view)
 
 bot.run(TOKEN)
