@@ -36,10 +36,15 @@ async def schedule(interaction: discord.Interaction, title: str):
             "**Instructions**\n"
             "• Select the days you are available\n"
             "• Submit your selections\n"
-            "• Results will be sent automatically\n"
-            f"• Number of members: **{count}**\n"
+            "• Results will be sent automatically\n\n"
+            f"Number of members: **{count}**"
         ),
         color=discord.Color.blurple()
+    )
+    embed.add_field(
+        name="👥 Joined",
+        value="0",
+        inline=False
     )
     view = JoinButton(title=title)
     await interaction.response.send_message(
