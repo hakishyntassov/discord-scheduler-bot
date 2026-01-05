@@ -5,26 +5,22 @@ from config import TOKEN
 intents = discord.Intents.default()
 intents.message_content = True
 
-client = discord.Client(intents=intents)
+bot = commands.Bot(command_prefix='$', intents=intents)
 
-@client.event
+@bot.tree.command(name="schedule", description = "Schedule an event")
+async def schedule(interaction: discord.Interaction):
+    await interaction.response.send_message("Created a schedule for event")
+
+@bot.event
 async def on_ready():
-    print(f'Logged in as {client.user}')
+    print(f'Logged in as {bot.user}')
 
-@client.event
+@bot.event
 async def on_message(message):
-    if message.author == client.user:
+    if message.author == bot.user:
         return
 
     if message.content.startswith('$hello'):
         await message.channel.send('Hello!')
 
-bot = commands.Bot(command_prefix='$', intents=intents)
-
-@commands.command()
-async def test(ctx, arg):
-    await ctx.send(arg)
-
-bot.add_command(test)
-
-client.run(TOKEN)
+bot.run(TOKEN)
