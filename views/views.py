@@ -30,9 +30,6 @@ class JoinButton(discord.ui.View):
             inline=False
         )
 
-        await interaction.message.edit(embed=embed, view=self)
-        await interaction.response.defer()  # no visible reply
-
         try:
             await interaction.response.send_message(
                 f"📩 You joined the **{self.title}** event!\n📩 I’ve sent you a DM!",
@@ -50,6 +47,9 @@ class JoinButton(discord.ui.View):
                 "❌ I can’t DM you. Please enable DMs from server members.",
                 ephemeral=True
             )
+        await interaction.message.edit(embed=embed, view=self)
+        await interaction.response.defer()  # no visible reply
+
 
     @discord.ui.button(label="Results", style=discord.ButtonStyle.danger, row=0)
     async def results_button(self, interaction: discord.Interaction, button: discord.ui.Button):
