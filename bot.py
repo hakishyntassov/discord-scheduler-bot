@@ -9,8 +9,8 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 @bot.tree.command(name="schedule", description = "Schedule an event", guild=discord.Object(id=GUILD_ID))
-async def schedule(interaction: discord.Interaction):
-    await interaction.response.send_message("Created a schedule for event")
+async def schedule(interaction: discord.Interaction, title: str):
+    await interaction.response.send_message(f"{bot.user} created event: {title}")
 
 @bot.event
 async def on_ready():
