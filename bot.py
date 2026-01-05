@@ -27,7 +27,13 @@ async def schedule(interaction: discord.Interaction, title: str):
     author = interaction.user.name
     embed = discord.Embed(
         title=f"Event: **{title}**",
-        description=("Description"),
+        description=(
+            f"Event created by **{author}**\n\n"
+            "**Instructions**\n"
+            "• Select the days you are available\n"
+            "• Submit your selections\n"
+            "• Results will be sent automatically"
+        ),
         color=discord.Color.blurple()
     )
     view = JoinButton(title=title)
