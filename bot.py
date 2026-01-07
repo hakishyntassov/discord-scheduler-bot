@@ -26,6 +26,8 @@ async def on_message(message):
 
 @bot.tree.command(name="schedule", description = "Schedule an event", guild=discord.Object(id=GUILD_ID))
 async def schedule(interaction: discord.Interaction, title: str):
+    await interaction.response.defer()
+
     channel = interaction.channel
     members = channel.members
     count = len([m for m in channel.members if not m.bot])
@@ -52,16 +54,13 @@ async def schedule(interaction: discord.Interaction, title: str):
 
     view = ScheduleView(title=title, event_id=None)
 
-    # 1️⃣ send embed FIRST (no view yet)
-    await interaction.response.send_message(embed=embed, view=view)
-
-    # 2️⃣ get the message object
-    message = await interaction.original_response()
+    message = await interaction.followup.send(embed=embed, view=view)
     event_id = add_event(
         title=title,
         channel_id=interaction.channel.id,
         message_id=message.id
     )
     view.event_id = event_id
+
 init_db()
 bot.run(TOKEN)
