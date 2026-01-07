@@ -30,6 +30,7 @@ async def schedule(interaction: discord.Interaction, title: str):
     members = channel.members
     count = len([m for m in channel.members if not m.bot])
     author = interaction.user.name
+
     embed = discord.Embed(
         title=f"Event: **{title}**",
         description=(
@@ -42,11 +43,14 @@ async def schedule(interaction: discord.Interaction, title: str):
         ),
         color=discord.Color.blurple()
     )
+
     embed.add_field(
         name="👥 Joined",
         value="0",
         inline=False
     )
+
+    view = ScheduleView(title=title, event_id=None)
 
     # 1️⃣ send embed FIRST (no view yet)
     await interaction.response.send_message(embed=embed)
@@ -58,7 +62,6 @@ async def schedule(interaction: discord.Interaction, title: str):
         channel_id=interaction.channel.id,
         message_id=message.id
     )
-    view = ScheduleView(title=title, event_id=event_id)
-    await message.edit(view=view)
+    view.event_id = event_id
 init_db()
 bot.run(TOKEN)

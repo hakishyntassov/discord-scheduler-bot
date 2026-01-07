@@ -42,8 +42,8 @@ class ScheduleView(discord.ui.View):
                     f"📩 I’ve sent you a DM for **{self.title}**.",
                     ephemeral=True
                 )
-                await asyncio.sleep(1800)
-                await msg.delete()
+                #await asyncio.sleep(1800)
+                #await msg.delete()
             except discord.Forbidden:
                 # User has DMs closed
                 await interaction.followup.send(
