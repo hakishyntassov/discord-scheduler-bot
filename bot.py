@@ -53,7 +53,7 @@ async def schedule(interaction: discord.Interaction, title: str):
     view = ScheduleView(title=title, event_id=None)
 
     # 1️⃣ send embed FIRST (no view yet)
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(embed=embed, view=view)
 
     # 2️⃣ get the message object
     message = await interaction.original_response()
