@@ -1,13 +1,16 @@
 import asyncio
 import discord
 from discord.ext import commands
-from db import add_join, count_joins, user_in_event
+from db import add_join, count_joins, user_in_event, save_availability, find_overlaps, find_overlaps
+from time_parse import to_minutes, minutes_to_label
+from config import DAY_NAMES
 
 class ScheduleView(discord.ui.View):
-    def __init__(self, title, event_id):
+    def __init__(self, title, event_id, channel_id):
         super().__init__() # Optional: set a timeout for the view
         self.title = title
         self.event_id = event_id
+        self.channel_id = channel_id
 
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success, row=0)
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -36,6 +39,16 @@ class ScheduleView(discord.ui.View):
                 dm = await user.create_dm()
                 msg = await dm.send(
                     f"👋 Hi! You joined **{self.title}** event.\n📩 Here’s your private scheduler form."
+                    "📅 Let’s set your availability for **Monday**.\n"
+                    "• If the day works better for you, click on 'Preferred' button\n"
+                    "• If you're not free, click on 'Unavailable' button\n"
+                    "• Click on 'Fill availability times' button and type the times when you're free\n"
+                    "• Format: 10am-1:20pm, 7:30pm-11pm\n\n",
+                    view=AvailabilityView(
+                        event_id=self.event_id,
+                        user_id=user.id,
+                        day_id=0
+                    )
                 )
                 # optional confirmation (ephemeral)
                 await interaction.followup.send(
@@ -54,7 +67,101 @@ class ScheduleView(discord.ui.View):
     @discord.ui.button(label="Results", style=discord.ButtonStyle.danger, row=0)
     async def results_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
-        await interaction.response.send_message(
-            f"📩 Here are the results for **{self.title}** event!",
-            ephemeral=True
+        await interaction.response.defer(ephemeral=True)
+
+        results = find_overlaps(self.event_id)
+
+        if not results:
+            await interaction.followup.send(
+                "No overlapping availability found.",
+                ephemeral=True
+            )
+            return
+
+        channel = interaction.client.get_channel(self.channel_id)
+
+        lines = ["📊 **Best available times**\n"]
+
+        for weekday, start, end, count in results:
+            lines.append(
+                f"{DAY_NAMES[{weekday}]}: "
+                f"**{minutes_to_label(start)}–{minutes_to_label(end)}** "
+                f"(for **{count}** people)"
+            )
+
+        await channel.send("\n".join(lines))
+        await interaction.followup.send("Results posted!", ephemeral=True)
+
+class AvailabilityView(discord.ui.View):
+    def __init__(self, event_id, user_id, day_id):
+        super().__init__()
+        self.event_id = event_id
+        self.user_id = user_id
+        self.day_id = day_id
+
+    async def cycle(self, interaction):
+        next = self.day_id + 1
+        if next < 7:
+            await interaction.followup.send(
+                f"{DAY_NAMES[next]}",
+                view=AvailabilityView(self.event_id, self.user_id, next)
+            )
+        else:
+            await interaction.followup.send(
+                "Your availability is submitted! I will send the results once everyone completes the form.",
+                ephemeral=True
+            )
+
+    @discord.ui.button(label="Fill availability times", style=discord.ButtonStyle.primary, row=1)
+    async def fill_times_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(
+            AvailabilityModal(
+                event_id=self.event_id,
+                user_id=self.user_id,
+                day_id=self.day_id,
+                is_preferred=False
+            )
         )
+
+    @discord.ui.button(label="⭐ Preferred", style=discord.ButtonStyle.success)
+    async def preferred(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(
+            AvailabilityModal(
+                event_id=self.event_id,
+                user_id=self.user_id,
+                day_id=self.day_id,
+                is_preferred=True
+            )
+        )
+
+    @discord.ui.button(label="🚫 Unavailable", style=discord.ButtonStyle.secondary)
+    async def unavailable(self, interaction: discord.Interaction, button):
+        await interaction.response.defer()
+        await self.cycle(interaction)
+
+class AvailabilityModal(discord.ui.Modal):
+    def __init__(self, event_id, user_id, day_id, is_preferred):
+        super().__init__(title=f"{DAY_NAMES[day_id]} Availability")
+        self.event_id = event_id
+        self.user_id = user_id
+        self.day_id = day_id
+        self.is_preferred = is_preferred
+
+        self.times = discord.ui.TextInput(
+            label="Enter your available times",
+            placeholder="e.g. 7pm-10pm, 8am-12pm",
+            required=True
+        )
+        self.add_item(self.times)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        save_availability(
+            event_id=self.event_id,
+            user_id=self.user_id,
+            weekday=self.day_id + 1,
+            raw_input=self.times.value,
+            is_preferred=self.is_preferred
+        )
+
+        await interaction.response.defer()
+        await AvailabilityView(self.event_id, self.user_id, self.day_id).cycle(interaction)

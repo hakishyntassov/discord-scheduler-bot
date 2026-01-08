@@ -3,7 +3,7 @@ from discord.ext import commands
 from config import TOKEN
 from config import GUILD_ID
 from views.views import ScheduleView
-from db import init_db, add_event
+from db import init_db, add_event, find_overlaps
 
 intents = discord.Intents.default()
 intents.members = True
@@ -29,7 +29,6 @@ async def schedule(interaction: discord.Interaction, title: str):
     await interaction.response.defer()
 
     channel = interaction.channel
-    members = channel.members
     count = len([m for m in channel.members if not m.bot])
     author = interaction.user.name
 
@@ -38,7 +37,7 @@ async def schedule(interaction: discord.Interaction, title: str):
         description=(
             f"Event created by **{author}**\n\n"
             "**Instructions**\n"
-            "• Select the days you are available\n"
+            "• Select the days/times you are available\n"
             "• Submit your selections\n"
             "• Results will be sent automatically\n\n"
             f"Number of members: **{count}**"
@@ -52,15 +51,18 @@ async def schedule(interaction: discord.Interaction, title: str):
         inline=False
     )
 
-    view = ScheduleView(title=title, event_id=None)
+    view = ScheduleView(title=title, event_id=None, channel_id=channel.id)
 
     message = await interaction.followup.send(embed=embed, view=view)
     event_id = add_event(
         title=title,
         channel_id=interaction.channel.id,
+        guild_id=interaction.guild.id,
         message_id=message.id
     )
     view.event_id = event_id
+    print(f'Created event: {title}')
 
 init_db()
-bot.run(TOKEN)
+#bot.run(TOKEN)
+find_overlaps(10,2)
