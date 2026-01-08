@@ -64,5 +64,5 @@ async def schedule(interaction: discord.Interaction, title: str):
     print(f'Created event: {title}')
 
 init_db()
-#bot.run(TOKEN)
-find_overlaps(10,2)
+bot.run(TOKEN)
+#find_overlaps(10,2)
