@@ -84,7 +84,7 @@ class ScheduleView(discord.ui.View):
 
         for weekday, start, end, count in results:
             lines.append(
-                f"{DAY_NAMES[{weekday - 1}]}: "
+                f"{DAY_NAMES[weekday - 1]}: "
                 f"**{minutes_to_label(start)}–{minutes_to_label(end)}** "
                 f"(for **{count}** people)"
             )
