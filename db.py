@@ -47,7 +47,7 @@ def init_db():
             weekday         INTEGER NOT NULL,
             start_time      TEXT NOT NULL,
             end_time        TEXT NOT NULL,
-            is_preferred    INTEGER DEFAULT 0,
+            is_preferred    BOOLEAN DEFAULT FALSE,
             FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
             UNIQUE (event_id, user_id, weekday, start_time, end_time)
         )
