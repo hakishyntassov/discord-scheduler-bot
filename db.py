@@ -154,17 +154,17 @@ def save_availability(event_id: int, user_id: int, weekday: int, raw_input: str,
         with get_cursor() as cursor:
             cursor.execute(
                 """
-                INSERT INTO availability (event_id, user_id, weekday, start_time, end_time)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO availability (event_id, user_id, weekday, start_time, end_time, is_preferred)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (event_id, user_id, weekday, start_time, end_time)
+                (event_id, user_id, weekday, start_time, end_time, is_preferred)
             )
 
 def find_overlaps(event_id: int, min_people: int = 2):
     with get_cursor() as cursor:
         rows = cursor.execute(
             """
-            SELECT weekday, start_time, end_time
+            SELECT weekday, start_time, end_time, is_preferred
             FROM availability
             WHERE event_id = ?
             """,
@@ -172,41 +172,49 @@ def find_overlaps(event_id: int, min_people: int = 2):
         ).fetchall()
 
     events = defaultdict(list)
-    for weekday, start_time, end_time in rows:
+    for weekday, start_time, end_time, is_preferred in rows:
         start_time = int(start_time)
         end_time = int(end_time)
 
-        events[weekday].append((start_time, +1))
-        events[weekday].append((end_time, -1))
+        events[weekday].append((start_time, +1, is_preferred))
+        events[weekday].append((end_time, -1, is_preferred))
+
         print(
             f"{weekday}: "
-            f"{minutes_to_label(start_time)}–{minutes_to_label(end_time)}"
+            f"{minutes_to_label(start_time)}–{minutes_to_label(end_time)} "
+            f"Preferred: {is_preferred}"
         )
 
     for weekday, points in events.items():
         print(
             f"{weekday}: "
-            f"{start_time}, {points}"
+            f"{points}"
         )
+
     results = []
 
     for weekday, points in events.items():
         points.sort(key=lambda x: (x[0], x[1]))
         print(points)
         count = 0
-
+        pref_count = 0
         for i in range(len(points) - 1):
-            time, delta = points[i]
+            time, delta, pref_delta = points[i]
             count += delta  # apply change at boundary
+            pref_count += pref_delta
+
             next_time = points[i + 1][0]
 
             if count >= min_people and time < next_time:
-                results.append((weekday, time, next_time, count))
+                results.append((weekday, time, next_time, count, pref_count))
 
-    for weekday, start, end, count in results:
+            results.sort(key=lambda r: (r[3], r[4], r[0]), reverse=True)
+
+    for weekday, start, end, count, pref_count in results:
         print(
-            f"{weekday}: "
+            f"For {weekday}: "
             f"{minutes_to_label(start)}–{minutes_to_label(end)} "
-            f"({count} people)"
+            f"for {count} people) "
+            f"and preferred for {pref_count} people."
         )
     return results
