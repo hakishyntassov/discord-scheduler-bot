@@ -38,12 +38,8 @@ class ScheduleView(discord.ui.View):
 
                 dm = await user.create_dm()
                 msg = await dm.send(
-                    f"👋 Hi! You joined **{self.title}** event.\n📩 Here’s your private scheduler form."
-                    "📅 Let’s set your availability for **Monday**.\n"
-                    "• If the day works better for you, click on 'Preferred' button\n"
-                    "• If you're not free, click on 'Unavailable' button\n"
-                    "• Click on 'Fill availability times' button and type the times when you're free\n"
-                    "• Format: 10am-1:20pm, 7:30pm-11pm\n\n",
+                    f"👋 Hi! You joined **{self.title}** event.\n📩 Here’s your private scheduler form.\n\n"
+                    "📅 Let’s set your availability for **Monday**.\n\n",
                     view=AvailabilityView(
                         event_id=self.event_id,
                         user_id=user.id,
@@ -55,8 +51,7 @@ class ScheduleView(discord.ui.View):
                     f"📩 I’ve sent you a DM for **{self.title}**.",
                     ephemeral=True
                 )
-                #await asyncio.sleep(1800)
-                #await msg.delete()
+
             except discord.Forbidden:
                 # User has DMs closed
                 await interaction.followup.send(
@@ -112,7 +107,7 @@ class AvailabilityView(discord.ui.View):
                 ephemeral=True
             )
 
-    @discord.ui.button(label="Fill availability times", style=discord.ButtonStyle.primary, row=1)
+    @discord.ui.button(label="✅ Available", style=discord.ButtonStyle.primary, row=0)
     async def fill_times_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(
             AvailabilityModal(
@@ -123,7 +118,7 @@ class AvailabilityView(discord.ui.View):
             )
         )
 
-    @discord.ui.button(label="⭐ Preferred", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="⭐ Preferred", style=discord.ButtonStyle.success, row=0)
     async def preferred(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(
             AvailabilityModal(
@@ -134,7 +129,7 @@ class AvailabilityView(discord.ui.View):
             )
         )
 
-    @discord.ui.button(label="🚫 Unavailable", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="🚫 Unavailable", style=discord.ButtonStyle.secondary, row=0)
     async def unavailable(self, interaction: discord.Interaction, button):
         await interaction.response.defer()
         await self.cycle(interaction)
