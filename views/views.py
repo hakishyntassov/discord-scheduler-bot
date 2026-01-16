@@ -72,19 +72,18 @@ class ScheduleView(discord.ui.View):
                 ephemeral=True
             )
             return
+        else:
+            lines = ["📊 **Best available times**\n"]
 
-        channel = interaction.client.get_channel(self.channel_id)
+            for weekday, start, end, count, pref_count in results:
+                lines.append(
+                    f"{DAY_NAMES[weekday - 1]}: "
+                    f"**{minutes_to_label(start)}–{minutes_to_label(end)}** "
+                    f"(for **{count}** people, preferred for **{pref_count}** people).)"
+                )
 
-        lines = ["📊 **Best available times**\n"]
+            await interaction.followup.send("\n".join(lines))
 
-        for weekday, start, end, count, pref_count in results:
-            lines.append(
-                f"{DAY_NAMES[weekday - 1]}: "
-                f"**{minutes_to_label(start)}–{minutes_to_label(end)}** "
-                f"(for **{count}** people, preferred for **{pref_count}** people).)"
-            )
-
-        await channel.send("\n".join(lines))
         #await interaction.followup.send("Results posted!", ephemeral=True)
 
 class AvailabilityView(discord.ui.View):
