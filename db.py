@@ -143,9 +143,9 @@ def save_availability(event_id: int, user_id: int, weekday: int, raw_input: str,
         )
 
         end_time = to_minutes(
-            match.group("end_hour"),
-            match.group("end_min"),
-            match.group("end_ampm")
+            match.group("end_hour") or 11,
+            match.group("end_min") or 59,
+            match.group("end_ampm") or "pm"
         )
 
         if end_time <= start_time:
