@@ -77,15 +77,15 @@ class ScheduleView(discord.ui.View):
 
         lines = ["📊 **Best available times**\n"]
 
-        for weekday, start, end, count in results:
+        for weekday, start, end, count, pref_count in results:
             lines.append(
                 f"{DAY_NAMES[weekday - 1]}: "
                 f"**{minutes_to_label(start)}–{minutes_to_label(end)}** "
-                f"(for **{count}** people)"
+                f"(for **{count}** people, preferred for **{pref_count}** people).)"
             )
 
         await channel.send("\n".join(lines))
-        await interaction.followup.send("Results posted!", ephemeral=True)
+        #await interaction.followup.send("Results posted!", ephemeral=True)
 
 class AvailabilityView(discord.ui.View):
     def __init__(self, event_id, user_id, day_id):
@@ -98,12 +98,12 @@ class AvailabilityView(discord.ui.View):
         next = self.day_id + 1
         if next < 7:
             await interaction.followup.send(
-                f"{DAY_NAMES[next]}",
+                f"📅 Let’s set your availability for **{DAY_NAMES[next]}**",
                 view=AvailabilityView(self.event_id, self.user_id, next)
             )
         else:
             await interaction.followup.send(
-                "Your availability is submitted! I will send the results once everyone completes the form.",
+                "✅ Your availability is submitted!",
                 ephemeral=True
             )
 
