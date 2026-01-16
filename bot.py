@@ -25,12 +25,14 @@ async def on_message(message):
         await message.channel.send('Hello!')
 
 @bot.tree.command(name="schedule", description = "Schedule an event", guild=discord.Object(id=GUILD_ID))
-async def schedule(interaction: discord.Interaction, title: str):
+async def schedule(interaction: discord.Interaction, title: str, role: discord.Role):
     await interaction.response.defer()
 
     channel = interaction.channel
-    count = len([m for m in channel.members if not m.bot])
+    members = [m for m in role.members if not m.bot]
+    count = len(members)
     author = interaction.user.name
+    mentions = ", ".join(m.mention for m in members)
 
     embed = discord.Embed(
         title=f"Event: **{title}**",
@@ -40,7 +42,8 @@ async def schedule(interaction: discord.Interaction, title: str):
             "• Select the days/times you are available\n"
             "• Submit your selections\n"
             "• Results will be sent automatically\n\n"
-            f"Number of members: **{count}**"
+            f"Number of members: **{count}**\n"
+            f"Members included: {mentions}"
         ),
         color=discord.Color.blurple()
     )
@@ -65,4 +68,3 @@ async def schedule(interaction: discord.Interaction, title: str):
 
 init_db()
 bot.run(TOKEN)
-#find_overlaps(10,2)
