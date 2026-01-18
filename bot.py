@@ -13,7 +13,7 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 
 @bot.event
 async def on_ready():
-    await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
+    await bot.tree.sync()
     print(f'Logged in as {bot.user}')
 
 @bot.event
@@ -24,7 +24,7 @@ async def on_message(message):
     if message.content.startswith('$hello'):
         await message.channel.send('Hello!')
 
-@bot.tree.command(name="schedule", description = "Schedule an event", guild=discord.Object(id=GUILD_ID))
+@bot.tree.command(name="schedule", description = "Schedule an event")
 async def schedule(interaction: discord.Interaction, title: str, role: discord.Role):
     await interaction.response.defer()
 
