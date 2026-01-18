@@ -7,7 +7,7 @@ from config import DAY_NAMES
 
 class ScheduleView(discord.ui.View):
     def __init__(self, title, event_id, channel_id):
-        super().__init__() # Optional: set a timeout for the view
+        super().__init__(timeout=None)
         self.title = title
         self.event_id = event_id
         self.channel_id = channel_id
@@ -65,7 +65,7 @@ class ScheduleView(discord.ui.View):
         user = interaction.user
         await interaction.response.defer(ephemeral=True)
 
-        results = find_overlaps(self.event_id)
+        results = find_overlaps(self.event_id, 2)
 
         if not results:
             await interaction.followup.send(
@@ -89,7 +89,7 @@ class ScheduleView(discord.ui.View):
 
 class AvailabilityView(discord.ui.View):
     def __init__(self, event_id, user_id, day_id):
-        super().__init__()
+        super().__init__(timeout=None)
         self.event_id = event_id
         self.user_id = user_id
         self.day_id = day_id
