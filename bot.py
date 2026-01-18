@@ -13,6 +13,7 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 
 @bot.event
 async def on_ready():
+    bot.tree.clear_commands(guild=None)  # clears GLOBAL commands
     await bot.tree.sync()
     print(f'Logged in as {bot.user}')
 
