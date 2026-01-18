@@ -1,7 +1,7 @@
 import asyncio
 import discord
 from discord.ext import commands
-from db import add_join, count_joins, user_in_event, save_availability, find_overlaps, find_overlaps
+from db import add_join, count_joins, user_in_event, save_availability, find_overlaps, submit_availability, count_members, count_submits, get_channel_id
 from time_parse import to_minutes, minutes_to_label
 from config import DAY_NAMES
 
@@ -38,7 +38,8 @@ class ScheduleView(discord.ui.View):
 
                 dm = await user.create_dm()
                 msg = await dm.send(
-                    f"👋 Hi! You joined **{self.title}** event.\n📩 Here’s your private scheduler form.\n\n"
+                    f"👋 Hi! You joined **{self.title}** event.\n"
+                    f"📌 Select appropriate button if you're available that day, if you prefer that day, or if you're unavailable.\n\n"
                     "📅 Let’s set your availability for **Monday**.\n\n",
                     view=AvailabilityView(
                         event_id=self.event_id,
@@ -48,7 +49,7 @@ class ScheduleView(discord.ui.View):
                 )
                 # optional confirmation (ephemeral)
                 await interaction.followup.send(
-                    f"📩 I’ve sent you a DM for **{self.title}**.",
+                    f"📩 I’ve sent you a DM to submit your availability for **{self.title}**.",
                     ephemeral=True
                 )
 
@@ -73,7 +74,7 @@ class ScheduleView(discord.ui.View):
             )
             return
         else:
-            lines = ["📊 **Best available times**\n"]
+            lines = ["📊 **Best available times**"]
 
             for weekday, start, end, count, pref_count in results:
                 lines.append(
@@ -101,10 +102,26 @@ class AvailabilityView(discord.ui.View):
                 view=AvailabilityView(self.event_id, self.user_id, next)
             )
         else:
+            submit_availability(event_id=self.event_id, user_id=self.user_id)
             await interaction.followup.send(
-                "✅ Your availability is submitted!",
+                "✅ Your availability is submitted! When everyone submits their selections, I'll post results in your channel!",
                 ephemeral=True
             )
+            count1 = count_submits(self.event_id)
+            count2 = count_members(self.event_id)
+
+            if count1 == count2:
+                channel_id = get_channel_id(self.event_id)
+                channel = interaction.client.get_channel(channel_id)
+                results = find_overlaps(self.event_id, count2)
+                lines = ["📊 **Best available times**"]
+                for weekday, start, end, count, pref_count in results:
+                    lines.append(
+                        f"{DAY_NAMES[weekday - 1]}: "
+                        f"**{minutes_to_label(start)}–{minutes_to_label(end)}** "
+                        f"for **{count}** people and preferred for **{pref_count}** people"
+                    )
+                await channel.send("\n".join(lines))
 
     @discord.ui.button(label="✅ Available", style=discord.ButtonStyle.primary, row=0)
     async def fill_times_button(self, interaction: discord.Interaction, button: discord.ui.Button):

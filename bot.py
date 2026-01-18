@@ -37,12 +37,10 @@ async def schedule(interaction: discord.Interaction, title: str, role: discord.R
     embed = discord.Embed(
         title=f"Event: **{title}**",
         description=(
-            f"Event created by **{author}**\n\n"
             "**Instructions**\n"
             "• Select the days/times you are available\n"
             "• Submit your selections\n"
             "• Results will be sent automatically\n\n"
-            f"Number of members: **{count}**\n"
             f"Members included: {mentions}"
         ),
         color=discord.Color.blurple()
@@ -61,7 +59,8 @@ async def schedule(interaction: discord.Interaction, title: str, role: discord.R
         title=title,
         channel_id=interaction.channel.id,
         guild_id=interaction.guild.id,
-        message_id=message.id
+        message_id=message.id,
+        count_members=count
     )
     view.event_id = event_id
     print(f'Created event: {title}')

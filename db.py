@@ -14,12 +14,13 @@ def init_db():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS events (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            title       TEXT NOT NULL,
-            channel_id  INTEGER NOT NULL,
-            guild_id    INTEGER NOT NULL,
-            message_id  INTEGER NOT NULL,
-            created_at  TEXT DEFAULT (datetime('now'))
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            title          TEXT NOT NULL,
+            channel_id     INTEGER NOT NULL,
+            guild_id       INTEGER NOT NULL,
+            message_id     INTEGER NOT NULL,
+            count_members  INTEGER NOT NULL,
+            created_at     TEXT DEFAULT (datetime('now'))
         )
         """
     )
@@ -30,6 +31,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS event_joins (
             event_id    INTEGER NOT NULL,
             user_id     INTEGER NOT NULL,
+            submitted   BOOLEAN DEFAULT 0,
             joined_at   TEXT DEFAULT (datetime('now')),
             PRIMARY KEY (event_id, user_id),
             FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
@@ -67,14 +69,14 @@ def get_cursor():
     finally:
         conn.close()
 
-def add_event(title, channel_id, guild_id, message_id):
+def add_event(title, channel_id, guild_id, message_id, count_members):
     with get_cursor() as cursor:
         cursor.execute(
             """
-            INSERT INTO events (title, channel_id, guild_id, message_id)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO events (title, channel_id, guild_id, message_id, count_members)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (title, channel_id, guild_id, message_id)
+            (title, channel_id, guild_id, message_id, count_members)
         )
         return cursor.lastrowid
 
@@ -104,6 +106,30 @@ def count_joins(event_id):
         )
         return cursor.fetchone()[0]
 
+def get_channel_id(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT channel_id 
+            FROM events
+            WHERE id = ?
+            """,
+            (event_id,)
+        )
+        return cursor.fetchone()[0]
+
+def count_members(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT count_members
+            FROM events
+            WHERE id=?
+            """,
+            (event_id,)
+        )
+        return cursor.fetchone()[0]
+
 def user_in_event(event_id: int, user_id: int) -> bool:
     with get_cursor() as cursor:
         cursor.execute(
@@ -121,19 +147,20 @@ def save_availability(event_id: int, user_id: int, weekday: int, raw_input: str,
     TIME_RANGE_REGEX = re.compile(
         r"""
         (?P<start_hour>1[0-2]|0?[1-9]|2[0-3])
-        (?:
-            :(?P<start_min>[0-5][0-9])
-        )?
+        (?::(?P<start_min>[0-5][0-9]))?
         \s*(?P<start_ampm>am|pm)?
-        \s*-\s*
-        (?P<end_hour>1[0-2]|0?[1-9]|2[0-3])
         (?:
-            :(?P<end_min>[0-5][0-9])
+            \s*-\s*
+            (?:
+                (?P<end_hour>1[0-2]|0?[1-9]|2[0-3])
+                (?::(?P<end_min>[0-5][0-9]))?
+                \s*(?P<end_ampm>am|pm)?
+            )?
         )?
-        \s*(?P<end_ampm>am|pm)?
         """,
         re.IGNORECASE | re.VERBOSE
     )
+
     matches = list(TIME_RANGE_REGEX.finditer(raw_input))
     for match in matches:
         start_time = to_minutes(
@@ -142,11 +169,19 @@ def save_availability(event_id: int, user_id: int, weekday: int, raw_input: str,
             match.group("start_ampm")
         )
 
-        end_time = to_minutes(
-            match.group("end_hour") or 11,
-            match.group("end_min") or 59,
-            match.group("end_ampm") or "pm"
+        end_exists = any(
+            match.group(k) is not None
+            for k in ("end_hour", "end_min", "end_ampm")
         )
+
+        if not end_exists:
+            end_time = to_minutes(11, 59, "pm")
+        else:
+            end_time = to_minutes(
+                match.group("end_hour"),
+                match.group("end_min"),
+                match.group("end_ampm")
+            )
 
         if end_time <= start_time:
             raise ValueError("End time must be after start time")
@@ -160,7 +195,31 @@ def save_availability(event_id: int, user_id: int, weekday: int, raw_input: str,
                 (event_id, user_id, weekday, start_time, end_time, is_preferred)
             )
 
-def find_overlaps(event_id: int, min_people: int = 2):
+def submit_availability(event_id: int, user_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE event_joins
+            SET submitted = 1
+            WHERE event_id = ?
+              AND user_id = ?
+            """,
+            (event_id, user_id)
+        )
+
+def count_submits(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT COUNT(*) 
+            FROM event_joins 
+            WHERE event_id = ? AND submitted = 1
+            """,
+            (event_id,)
+        )
+        return cursor.fetchone()[0]
+
+def find_overlaps(event_id: int, min_people: int):
     with get_cursor() as cursor:
         rows = cursor.execute(
             """
