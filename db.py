@@ -1,3 +1,4 @@
+import math
 import sqlite3
 import re
 from collections import defaultdict
@@ -56,6 +57,19 @@ def init_db():
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS rsvp (
+            rsvp_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id        INTEGER NOT NULL,
+            user_id         INTEGER NOT NULL,
+            status          TEXT NOT NULL,
+            FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+            UNIQUE (event_id, user_id)
+        )
+        """
+    )
+
     conn.commit()
     conn.close()
 
@@ -106,6 +120,30 @@ def count_joins(event_id):
         )
         return cursor.fetchone()[0]
 
+def get_joins(event_id):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT user_id
+            FROM event_joins
+            WHERE event_id = ?
+            """,
+            (event_id,)
+        )
+        return cursor.fetchall()
+
+def get_message_id(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT message_id
+            FROM events
+            WHERE id = ?
+            """,
+            (event_id,)
+        )
+        return cursor.fetchone()[0]
+
 def get_channel_id(event_id: int):
     with get_cursor() as cursor:
         cursor.execute(
@@ -118,6 +156,18 @@ def get_channel_id(event_id: int):
         )
         return cursor.fetchone()[0]
 
+def get_not_submitted(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT user_id
+            FROM event_joins
+            WHERE event_id = ? AND submitted = 0
+            """,
+            (event_id,)
+        )
+        return cursor.fetchall()
+
 def count_members(event_id: int):
     with get_cursor() as cursor:
         cursor.execute(
@@ -125,6 +175,18 @@ def count_members(event_id: int):
             SELECT count_members
             FROM events
             WHERE id=?
+            """,
+            (event_id,)
+        )
+        return cursor.fetchone()[0]
+
+def get_title(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT title
+            FROM events
+            WHERE id = ?
             """,
             (event_id,)
         )
@@ -207,7 +269,19 @@ def submit_availability(event_id: int, user_id: int):
             (event_id, user_id)
         )
 
-def count_submits(event_id: int):
+def get_count_members(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT count_members
+            FROM events
+            WHERE id = ?
+            """,
+            (event_id,)
+        )
+        return cursor.fetchone()[0]
+
+def get_count_submits(event_id: int):
     with get_cursor() as cursor:
         cursor.execute(
             """
@@ -235,8 +309,9 @@ def find_overlaps(event_id: int, min_people: int):
         start_time = int(start_time)
         end_time = int(end_time)
 
-        events[weekday].append((start_time, +1, is_preferred))
-        events[weekday].append((end_time, -1, is_preferred))
+        pref = 1 if is_preferred else 0
+        events[weekday].append((start_time, +1, +pref))
+        events[weekday].append((end_time, -1, -pref))
 
         print(
             f"{weekday}: "
@@ -260,20 +335,28 @@ def find_overlaps(event_id: int, min_people: int):
         for i in range(len(points) - 1):
             time, delta, pref_delta = points[i]
             count += delta  # apply change at boundary
+            print(f"Count: {count}")
             pref_count += pref_delta
-
+            print(f"Pref count: {pref_count}")
             next_time = points[i + 1][0]
 
             if count >= min_people and time < next_time:
                 results.append((weekday, time, next_time, count, pref_count))
 
-            results.sort(key=lambda r: (r[3], r[4], r[0]), reverse=True)
+    results.sort(key=lambda r: (r[3], r[4], r[0]), reverse=True)
+
+    lines = ["📊 **Best available times**"]
+    count_members = get_count_members(event_id)
+    print(count_members)
+    threshold = 0.75 * int(count_members)
+    min = math.floor(threshold)
+    print(f"Minimum {min} people")
 
     for weekday, start, end, count, pref_count in results:
-        print(
-            f"For {weekday}: "
-            f"{minutes_to_label(start)}–{minutes_to_label(end)} "
-            f"for {count} people) "
-            f"and preferred for {pref_count} people."
-        )
+        if count >= min:
+            print(
+                f"{weekday}: "
+                f"**{minutes_to_label(start)}–{minutes_to_label(end)}** "
+                f"for **{count}** people and preferred for **{pref_count}** people."
+            )
     return results
