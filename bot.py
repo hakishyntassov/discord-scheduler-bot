@@ -5,6 +5,7 @@ from config import TOKEN
 from config import GUILD_ID
 from views.views import ScheduleView, rsvpView
 from db import init_db, add_event, find_overlaps
+from database import init_database, close_database
 from time_parse import parse_time, parse_end_time
 from datetime import timedelta
 
@@ -17,6 +18,8 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 @bot.event
 async def on_ready():
     await bot.tree.sync()
+    await init_database()
+    print("Database initialized")
     print("Application ID:", bot.application_id)
     print(f'Logged in as {bot.user}')
 
