@@ -3,6 +3,7 @@ import sqlite3
 import re
 from collections import defaultdict
 from contextlib import contextmanager
+
 from time_parse import to_minutes, minutes_to_label
 
 DB_PATH = "events.db"
@@ -21,12 +22,14 @@ def init_db():
             guild_id       INTEGER NOT NULL,
             message_id     INTEGER NOT NULL,
             count_members  INTEGER NOT NULL,
+            start_timep     DATETIME NOT NULL,
+            end_timep       DATETIME,
             created_at     TEXT DEFAULT (datetime('now'))
         )
         """
     )
 
-    # event participants
+    # event joins
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS event_joins (
@@ -48,6 +51,7 @@ def init_db():
             event_id        INTEGER NOT NULL,
             user_id         INTEGER NOT NULL,
             weekday         INTEGER NOT NULL,
+            date1           DATETIME NOT NULL,
             start_time      TEXT NOT NULL,
             end_time        TEXT NOT NULL,
             is_preferred    BOOLEAN DEFAULT FALSE,
@@ -63,7 +67,7 @@ def init_db():
             rsvp_id INTEGER PRIMARY KEY AUTOINCREMENT,
             event_id        INTEGER NOT NULL,
             user_id         INTEGER NOT NULL,
-            status          TEXT NOT NULL,
+            status          INTEGER NOT NULL,
             FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
             UNIQUE (event_id, user_id)
         )
@@ -83,14 +87,14 @@ def get_cursor():
     finally:
         conn.close()
 
-def add_event(title, channel_id, guild_id, message_id, count_members):
+def add_event(title, channel_id, guild_id, message_id, count_members, start_timep, end_timep):
     with get_cursor() as cursor:
         cursor.execute(
             """
-            INSERT INTO events (title, channel_id, guild_id, message_id, count_members)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO events (title, channel_id, guild_id, message_id, count_members, start_timep, end_timep)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (title, channel_id, guild_id, message_id, count_members)
+            (title, channel_id, guild_id, message_id, count_members, start_timep, end_timep)
         )
         return cursor.lastrowid
 
@@ -103,6 +107,20 @@ def add_join(event_id, user_id):
                 VALUES (?, ?)
                 """,
                 (event_id, user_id)
+            )
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+def add_rsvp(event_id, user_id, status):
+    with get_cursor() as cursor:
+        try:
+            cursor.execute(
+                """
+                INSERT INTO rsvp (event_id, user_id, status)
+                VALUES (?, ?, ?)
+                """,
+                (event_id, user_id, status)
             )
             return True
         except sqlite3.IntegrityError:
@@ -192,6 +210,30 @@ def get_title(event_id: int):
         )
         return cursor.fetchone()[0]
 
+def get_start_timep(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT start_timep
+            FROM events
+            WHERE id = ?
+            """,
+            (event_id,)
+        )
+        return cursor.fetchone()[0]
+
+def get_end_timep(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT end_timep
+            FROM events
+            WHERE id = ?
+            """,
+            (event_id,)
+        )
+        return cursor.fetchone()[0]
+
 def user_in_event(event_id: int, user_id: int) -> bool:
     with get_cursor() as cursor:
         cursor.execute(
@@ -205,7 +247,56 @@ def user_in_event(event_id: int, user_id: int) -> bool:
         )
         return cursor.fetchone() is not None
 
-def save_availability(event_id: int, user_id: int, weekday: int, raw_input: str, is_preferred: bool):
+def user_in_rsvp(event_id: int, user_id: int) -> bool:
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT 1
+            FROM rsvp
+            WHERE event_id = ? AND user_id = ?
+            LIMIT 1
+            """,
+            (event_id, user_id)
+        )
+        return cursor.fetchone() is not None
+
+def change_rsvp(event_id: int, user_id: int, status: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE rsvp
+            SET status = ?
+            WHERE event_id = ? AND user_id = ?
+            """,
+            (status, event_id, user_id)
+        )
+        return True
+
+def get_rsvp(event_id: int, user_id: int) -> int:
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT status
+            FROM rsvp
+            WHERE event_id = ? AND user_id = ?
+            """,
+            (event_id, user_id)
+        )
+        return cursor.fetchone()[0]
+
+def count_status(event_id: int, status: int) -> int:
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM rsvp
+            WHERE event_id = ? AND status = ?
+            """,
+            (event_id, status,)
+        )
+        return cursor.fetchone()[0]
+
+def save_availability(event_id: int, user_id: int, weekday: int, date1: str, raw_input: str, is_preferred: bool):
     TIME_RANGE_REGEX = re.compile(
         r"""
         (?P<start_hour>1[0-2]|0?[1-9]|2[0-3])
@@ -251,10 +342,10 @@ def save_availability(event_id: int, user_id: int, weekday: int, raw_input: str,
         with get_cursor() as cursor:
             cursor.execute(
                 """
-                INSERT INTO availability (event_id, user_id, weekday, start_time, end_time, is_preferred)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO availability (event_id, user_id, weekday, date1, start_time, end_time, is_preferred)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (event_id, user_id, weekday, start_time, end_time, is_preferred)
+                (event_id, user_id, weekday, date1, start_time, end_time, is_preferred)
             )
 
 def submit_availability(event_id: int, user_id: int):
