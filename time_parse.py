@@ -46,7 +46,19 @@ def time_to_label(weekday: int, minutes: int) -> datetime:
     return dt
 
 def parse_time(time: str) -> datetime:
-    default = datetime.now().replace(minute=0, second=0, microsecond=0)
+    default = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    dt = parser.parse(
+        time,
+        fuzzy=True,
+        default=default
+    )
+    if dt < datetime.now():
+        dt += timedelta(days=7)
+    print(dt)
+    return dt
+
+def parse_end_day(time: str) -> datetime:
+    default = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
     dt = parser.parse(
         time,
         fuzzy=True,
