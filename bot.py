@@ -6,7 +6,7 @@ from views.views import ScheduleView, rsvpView
 from db import init_db, add_event, find_overlaps
 from time_parse import parse_time, parse_end_time, parse_end_day
 from datetime import timedelta
-from database import init_database, close_database
+from database import init_database, close_database, add_event1
 
 intents = discord.Intents.default()
 intents.members = True
@@ -18,7 +18,7 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 async def on_ready():
     await init_database()
     print("Database initialized")
-    event_id = add_event("first", "1", "1", "1",
+    event_id = add_event1("first", "1", "1", "1",
                     "1", "2026-01-27 15:00:00", "2026-01-29 15:00:00")
     print(f"Event created: {event_id}")
     await bot.tree.sync()
