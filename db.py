@@ -388,7 +388,7 @@ def find_overlaps(event_id: int, min_people: int):
     with get_cursor() as cursor:
         rows = cursor.execute(
             """
-            SELECT weekday, start_time, end_time, is_preferred
+            SELECT weekday, date1, start_time, end_time, is_preferred
             FROM availability
             WHERE event_id = ?
             """,
@@ -396,16 +396,16 @@ def find_overlaps(event_id: int, min_people: int):
         ).fetchall()
 
     events = defaultdict(list)
-    for weekday, start_time, end_time, is_preferred in rows:
+    for weekday, date1, start_time, end_time, is_preferred in rows:
         start_time = int(start_time)
         end_time = int(end_time)
 
         pref = 1 if is_preferred else 0
-        events[weekday].append((start_time, +1, +pref))
-        events[weekday].append((end_time, -1, -pref))
+        events[weekday].append((start_time, +1, +pref, date1))
+        events[weekday].append((end_time, -1, -pref, date1))
 
         print(
-            f"{weekday}: "
+            f"{weekday}: {date1} "
             f"{minutes_to_label(start_time)}–{minutes_to_label(end_time)} "
             f"Preferred: {is_preferred}"
         )
@@ -424,7 +424,7 @@ def find_overlaps(event_id: int, min_people: int):
         count = 0
         pref_count = 0
         for i in range(len(points) - 1):
-            time, delta, pref_delta = points[i]
+            time, delta, pref_delta, date1 = points[i]
             count += delta  # apply change at boundary
             print(f"Count: {count}")
             pref_count += pref_delta
@@ -432,7 +432,7 @@ def find_overlaps(event_id: int, min_people: int):
             next_time = points[i + 1][0]
 
             if count >= min_people and time < next_time:
-                results.append((weekday, time, next_time, count, pref_count))
+                results.append((weekday, time, next_time, count, pref_count, date1))
 
     results.sort(key=lambda r: (r[3], r[4], r[0]), reverse=True)
 
@@ -443,11 +443,11 @@ def find_overlaps(event_id: int, min_people: int):
     min = math.floor(threshold)
     print(f"Minimum {min} people")
 
-    for weekday, start, end, count, pref_count in results:
+    for weekday, start, end, count, pref_count, date1 in results:
         if count >= min:
             print(
-                f"{weekday}: "
-                f"**{minutes_to_label(start)}–{minutes_to_label(end)}** "
+                f"{weekday}: {date1} | "
+                f"**{minutes_to_label(start)}–{minutes_to_label(end)}** | "
                 f"for **{count}** people and preferred for **{pref_count}** people."
             )
     return results
