@@ -32,6 +32,8 @@ async def init_database():
             """
         )
 
+    print("Created table")
+
 async def close_database():
     if pool:
         await pool.close()
