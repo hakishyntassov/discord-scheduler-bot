@@ -17,7 +17,7 @@ async def init_database():
             guild_id       BIGINT NOT NULL,
             message_id     BIGINT NOT NULL,
             count_members  INTEGER NOT NULL,
-            start_timep    TIMESTAMP NOT NULL,
+            start_timep    TIMESTAMP,
             end_timep      TIMESTAMP,
             created_at     TIMESTAMP DEFAULT NOW()
         );
@@ -78,7 +78,7 @@ async def close_database():
     if pool:
         await pool.close()
 
-async def add_event1(title, channel_id, guild_id, message_id, count_members, start_timep, end_timep):
+async def add_event1(title, channel_id, guild_id, message_id, count_members):
     async with get_connection() as conn:
         event_id = await conn.fetchval(
             """
@@ -86,18 +86,14 @@ async def add_event1(title, channel_id, guild_id, message_id, count_members, sta
                                 channel_id, 
                                 guild_id, 
                                 message_id, 
-                                count_members, 
-                                start_timep, 
-                                end_timep)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                                count_members)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING id
             """,
             title,
             channel_id,
             guild_id,
             message_id,
-            count_members,
-            start_timep,
-            end_timep
+            count_members
         )
         return event_id
