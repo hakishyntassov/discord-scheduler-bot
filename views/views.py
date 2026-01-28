@@ -1,8 +1,7 @@
 import asyncio
 import math
 from datetime import timedelta, datetime, timezone
-from math import floor
-
+from itertools import islice
 import discord
 from discord.ext import commands
 from db import add_join, count_joins, user_in_event, save_availability, find_overlaps, submit_availability, \
@@ -188,25 +187,73 @@ class ScheduleView(discord.ui.View):
             )
             return
         else:
-            lines = ["📊 **Best available times**"]
-            count_members = get_count_members(self.event_id)
-            threshold = 0.75 * int(count_members)
-            min_people = round(threshold)
-            print(f"Minimum {min_people} people")
-            limit = 0
-            for weekday, start, end, count, pref_count in results:
-                if limit < 5:
-                    if count >= min_people & limit < 5:
-                        count_word = "people" if count != 1 else "person"
-                        pref_word = "people" if pref_count != 1 else "person"
-                        lines.append(
-                            f"> {DAY_NAMES[weekday - 1]}: **{minutes_to_label(start)}–{minutes_to_label(end)}** for **{count}** {count_word} and preferred for **{pref_count}** {pref_word}."
-                        )
-                    limit += 1
-                else:
-                    break
+            rows = []
 
-            await interaction.followup.send("\n".join(lines), ephemeral=True)
+            for weekday, start, end, count, pref_count, date1 in results:
+                date = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")
+                date_formatted = date.strftime("%B %d, %Y")
+                rows.append({
+                    "day": DAY_NAMES[weekday - 1],
+                    "date": date_formatted,
+                    "time": f"{minutes_to_label(start)}–{minutes_to_label(end)}",
+                    "people": str(count),
+                    "preferred": str(pref_count),
+                })
+
+            col_widths = {
+                "day": max(len("Day"), max(len(r["day"]) for r in rows)),
+                "date": max(len("Date"), max(len(r["date"]) for r in rows)),
+                "time": max(len("Time"), max(len(r["time"]) for r in rows)),
+                "people": max(len("People"), max(len(r["people"]) for r in rows)),
+                "preferred": max(len("Preferred"), max(len(r["preferred"]) for r in rows)),
+            }
+
+            header = (
+                f"{'Day':<{col_widths['day']}}  "
+                f"{'Date':<{col_widths['date']}}  "
+                f"{'Time':<{col_widths['time']}}  "
+                f"{'People':<{col_widths['people']}}  "
+                f"{'Preferred':<{col_widths['preferred']}}"
+            )
+
+            divider = "-" * len(header)
+
+            lines = [header, divider]
+
+            for r in rows:
+                lines.append(
+                    f"{r['day']:<{col_widths['day']}}  "
+                    f"{r['date']:<{col_widths['date']}}  "
+                    f"{r['time']:<{col_widths['time']}}  "
+                    f"{r['people']:<{col_widths['people']}}  "
+                    f"{r['preferred']:<{col_widths['preferred']}}"
+                )
+
+            table = "```text\n" + "\n".join(lines) + "\n```"
+            await interaction.followup.send(table)
+
+            # lines = ["📊 **Best available times**"]
+            # count_members = get_count_members(self.event_id)
+            # threshold = 0.75 * int(count_members)
+            # min_people = math.floor(threshold)
+            # print(f"Minimum {min_people} people")
+            # shown=0
+            # for weekday, start, end, count, pref_count, date1 in results:
+            #     if count < min_people:
+            #         continue
+            #     date = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")
+            #     date_formatted = date.strftime("%A (%B %d, %Y)")
+            #     count_word = "people" if count > 1 else "person"
+            #     pref_word = "people" if pref_count > 1 else "person"
+            #     lines.append(
+            #         f"**{date_formatted}**: from "
+            #         f"**{minutes_to_label(start)}** to **{minutes_to_label(end)}** "
+            #         f"for **{count}** {count_word} and preferred for **{pref_count}** {pref_word}."
+            #     )
+            #     shown += 1
+            #     if shown == 3:
+            #         break
+            # await interaction.followup.send("\n".join(lines), ephemeral=True)
 
         #await interaction.followup.send("Results posted!", ephemeral=True)
 
@@ -265,10 +312,8 @@ class AvailabilityView(discord.ui.View):
             count_members = get_count_members(self.event_id)
             threshold = 0.75 * int(count_members)
             min_people = math.floor(threshold)
-            print(f"Minimum {min_people}")
             results = find_overlaps(self.event_id, min_people)
             if count_submits == count_members:
-                print(f"Count: {results[0][3]}")
                 start_dt = parse_time_wd(results[0][0], results[0][1], user_tz="America/New_York")
                 end_dt = parse_time_wd(results[0][0], results[0][2], user_tz="America/New_York")
                 if results[0][3] == count_members:
@@ -284,8 +329,6 @@ class AvailabilityView(discord.ui.View):
                     )
                     embed.add_field(
                         name="**Time**",
-                        #value=f"{formatted_start_time} - {formatted_end_time}",
-                        #value=f"> {DAY_NAMES[results[0][0] - 1]}: {minutes_to_label(results[0][1])} - {minutes_to_label(results[0][2])}",
                         value=f"> {discord.utils.format_dt(start_dt, style='F')} - {discord.utils.format_dt(end_dt, style='F')}",
                         inline=False
                     )
@@ -303,15 +346,16 @@ class AvailabilityView(discord.ui.View):
                             question="🤔 Results are in! Pick the best time",
                             duration=timedelta(hours=24)
                         )
-                        limit = 0
-                        for weekday, start, end, count, pref_count in results:
-                            if limit < 5:
-                                if count >= min_people:
-                                    count_word = "people" if count != 1 else "person"
-                                    time_option = f"{discord.utils.format_dt(start_dt, style='F')} - {discord.utils.format_dt(end_dt, style='F')} | {count} {count_word}"
-                                    poll_obj.add_answer(text=time_option)
-                                    limit += 1
-                            else:
+                        shown = 0
+                        for weekday, start, end, count, pref_count, date1 in results:
+                            if count >= min_people:
+                                continue
+                            start_formatted = date1.strftime("%A (%d/%m/%y)")
+                            count_word = "people" if count != 1 else "person"
+                            time_option = f"{start_formatted}: {minutes_to_label(start)}-{minutes_to_label(end)} | {count} {count_word}"
+                            poll_obj.add_answer(text=time_option)
+                            shown += 1
+                            if shown == 3:
                                 break
                         await channel.send(poll=poll_obj)
                     except discord.Forbidden:
@@ -360,7 +404,7 @@ class AvailabilityView(discord.ui.View):
         save_availability(
             event_id=self.event_id,
             user_id=self.user_id,
-            weekday=self.day_id + 1,
+            weekday=self.day_id+1,
             date1=self.date1,
             raw_input="12am",
             is_preferred=True
@@ -396,7 +440,7 @@ class AvailabilityModal(discord.ui.Modal):
         save_availability(
             event_id=self.event_id,
             user_id=self.user_id,
-            weekday=self.day_id + 1,
+            weekday=self.day_id+1,
             date1=self.date1,
             raw_input=self.times.value,
             is_preferred=self.is_preferred
