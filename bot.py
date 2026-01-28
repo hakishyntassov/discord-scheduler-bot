@@ -4,10 +4,10 @@ import discord
 from discord.ext import commands
 from config import TOKEN
 from views.views import ScheduleView, rsvpView
-from db import init_db, add_event, find_overlaps
+#from db import init_db, add_event, find_overlaps
 from time_parse import parse_time, parse_end_time, parse_end_day
 from datetime import timedelta
-from database import init_database, close_database, add_event1
+from database import init_db, close_database, add_event, find_overlaps
 
 intents = discord.Intents.default()
 intents.members = True
@@ -17,11 +17,8 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 
 @bot.event
 async def on_ready():
-    await init_database()
+    await init_db()
     print("Database initialized")
-    event_id = await add_event1("first", 1, 1, 1, 1,
-                                datetime.datetime.now(), datetime.datetime.now())
-    print(f"Event created: {event_id}")
     await bot.tree.sync()
     print("Application ID:", bot.application_id)
     print(f'Logged in as {bot.user}')
@@ -229,5 +226,5 @@ async def schedule(interaction: discord.Interaction,
     view.event_id = event_id
     print(f'Created event: {title}')
 
-init_db() # CREATE DATABASE TABLES
+#init_db() # CREATE DATABASE TABLES
 bot.run(TOKEN) # RUN THE BOT

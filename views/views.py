@@ -4,7 +4,7 @@ from datetime import timedelta, datetime, timezone
 from itertools import islice
 import discord
 from discord.ext import commands
-from db import add_join, count_joins, user_in_event, save_availability, find_overlaps, submit_availability, \
+from database import add_join, count_joins, user_in_event, save_availability, find_overlaps, submit_availability, \
     get_count_submits, get_channel_id, get_count_members, get_joins, get_message_id, get_title, add_rsvp, user_in_rsvp, \
     change_rsvp, get_rsvp, count_status, get_start_timep, get_end_timep
 from time_parse import to_minutes, minutes_to_label, time_to_label, parse_time_wd, get_next_day
