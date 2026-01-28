@@ -17,9 +17,8 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 @bot.event
 async def on_ready():
     await init_database()
-    print("✅ Database initialized")
-    await bot.tree.sync()
     print("Database initialized")
+    await bot.tree.sync()
     print("Application ID:", bot.application_id)
     print(f'Logged in as {bot.user}')
 
