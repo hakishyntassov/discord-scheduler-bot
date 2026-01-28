@@ -2,12 +2,11 @@ import re
 import discord
 from discord.ext import commands
 from config import TOKEN
-from config import GUILD_ID
 from views.views import ScheduleView, rsvpView
 from db import init_db, add_event, find_overlaps
-from database import init_database, close_database
-from time_parse import parse_time, parse_end_time
+from time_parse import parse_time, parse_end_time, parse_end_day
 from datetime import timedelta
+from database import init_database, close_database
 
 intents = discord.Intents.default()
 intents.members = True
@@ -138,11 +137,12 @@ async def schedule(interaction: discord.Interaction,
     await interaction.response.defer()
     # PERIOD
     start_date = parse_time(start)
+    print(start_date)
     start_date_formatted = discord.utils.format_dt(start_date, style='F')
     if end:
-        end_date = parse_time(end)
+        end_date = parse_end_day(end)
     else:
-        end_date = start_date + timedelta(days=6)
+        end_date = start_date + timedelta(days=6, hours=23, minutes=59, seconds=59)
     if start_date > end_date:
         end_date = end_date + timedelta(days=7)
     end_date_formatted = discord.utils.format_dt(end_date, style='F')
