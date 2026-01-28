@@ -77,3 +77,27 @@ async def get_connection():
 async def close_database():
     if pool:
         await pool.close()
+
+async def add_event1(title, channel_id, guild_id, message_id, count_members, start_timep, end_timep):
+    async with get_connection() as conn:
+        event_id = await conn.fetchval(
+            """
+            INSERT INTO events (title, 
+                                channel_id, 
+                                guild_id, 
+                                message_id, 
+                                count_members, 
+                                start_timep, 
+                                end_timep)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id
+            """,
+            title,
+            channel_id,
+            guild_id,
+            message_id,
+            count_members,
+            start_timep,
+            end_timep
+        )
+        return event_id
