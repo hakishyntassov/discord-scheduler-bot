@@ -1,3 +1,4 @@
+import datetime
 import re
 import discord
 from discord.ext import commands
@@ -18,7 +19,8 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 async def on_ready():
     await init_database()
     print("Database initialized")
-    event_id = await add_event1("first", 1, 1, 1, 1)
+    event_id = await add_event1("first", 1, 1, 1, 1,
+                                datetime.datetime.now(), datetime.datetime.now())
     print(f"Event created: {event_id}")
     await bot.tree.sync()
     print("Application ID:", bot.application_id)
