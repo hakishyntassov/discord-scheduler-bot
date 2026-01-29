@@ -4,9 +4,9 @@ from datetime import timedelta, datetime, timezone
 from itertools import islice
 import discord
 from discord.ext import commands
-from database import add_join, count_joins, user_in_event, save_availability, find_overlaps, submit_availability, \
+from db import add_join, count_joins, user_in_event, save_availability, find_overlaps, submit_availability, \
     get_count_submits, get_channel_id, get_count_members, get_joins, get_message_id, get_title, add_rsvp, user_in_rsvp, \
-    change_rsvp, get_rsvp, count_status, get_start_timep, get_end_timep
+    change_rsvp, get_rsvp, count_status, get_start_timep, get_end_timep, set_rsvp, get_rsvp_users
 from time_parse import to_minutes, minutes_to_label, time_to_label, parse_time_wd, get_next_day
 from config import DAY_NAMES
 
@@ -41,58 +41,85 @@ class rsvpView(discord.ui.View):
         else:
             await interaction.followup.send("> You can't rsvp to this event", ephemeral=True)
 
-    # @discord.ui.button(label="Edit", style=discord.ButtonStyle.primary, row=0)
-    # async def edit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #     await interaction.response.defer(ephemeral=True)
-
-
     async def remove_add_user(self, interaction, new_status: int):
-        user = interaction.user.id
-        members = get_count_members(self.event_id)
-
-        channel = interaction.client.get_channel(get_channel_id(self.event_id))
-        message = await channel.fetch_message(get_message_id(self.event_id))
-        embed = message.embeds[0]
-
-        if user_in_rsvp(self.event_id, user):
-            old_status = int(get_rsvp(self.event_id, user))
-
-            if old_status == new_status:
-                await interaction.followup.send(
-                    "> You already RSVP'd to this event",
-                    ephemeral=True
-                )
-                return
-
-            change_rsvp(self.event_id, user, new_status)
-
-            field = embed.fields[old_status]
-            lines = [l for l in field.value.splitlines() if l.strip() != f"> <@{user}>"]
-            old_count = count_status(self.event_id, old_status)
-
-            embed.set_field_at(
-                old_status,
-                name=f"{field.name.split('(')[0]}({old_count}/{members})",
-                value="\n".join(lines) if lines else "> -",
-                inline=True
+        if not set_rsvp(self.event_id, interaction.user.id, new_status):
+            await interaction.followup.send(
+                "> You already RSVP'd to this event",
+                ephemeral=True
             )
+            return
+        #
+        # accepted = count_status(self.event_id, 3)
+        # maybe = count_status(self.event_id, 4)
+        # declined = count_status(self.event_id, 5)
 
-        else:
-            add_rsvp(self.event_id, user, new_status)
+        embed = interaction.message.embeds[0]
+        total = get_count_members(self.event_id)
 
-        field = embed.fields[new_status]
-        lines = [] if field.value == "> -" else field.value.splitlines()
-        lines.append(f"> <@{user}>")
+        rows = get_rsvp_users(self.event_id)
 
-        new_count = count_status(self.event_id, new_status)
+        accepted = []
+        maybe = []
+        declined = []
+
+        for user_id, status in rows:
+            if status == 3:
+                accepted.append(f"> <@{user_id}>")
+            elif status == 4:
+                maybe.append(f"> <@{user_id}>")
+            elif status == 5:
+                declined.append(f"> <@{user_id}>")
+
         embed.set_field_at(
-            new_status,
-            name=f"{field.name.split('(')[0]}({new_count}/{members})",
-            value="\n".join(lines),
+            3,
+            name=f"✅ Accepted ({len(accepted)}/{total})",
+            value="\n".join(accepted),
             inline=True
         )
 
-        await message.edit(embed=embed)
+        embed.set_field_at(
+            4,
+            name=f"❔ Maybe ({len(maybe)}/{total})",
+            value="\n".join(maybe),
+            inline=True
+        )
+
+        embed.set_field_at(
+            5,
+            name=f"❌ Declined ({len(declined)}/{total})",
+            value="\n".join(declined),
+            inline=True
+        )
+
+        # await change_rsvp(self.event_id, user, new_status)
+        #
+        # field = embed.fields[old_status]
+        # lines = [l for l in field.value.splitlines() if l.strip() != f"> <@{user}>"]
+        # old_count = await count_status(self.event_id, old_status)
+        # members = await get_count_members(self.event_id)
+        # embed.set_field_at(
+        #     old_status,
+        #     name=f"{field.name.split('(')[0]}({old_count}/{members})",
+        #     value="\n".join(lines) if lines else "> -",
+        #     inline=True
+        # )
+        #
+        # else:
+        #     await add_rsvp(self.event_id, user, new_status)
+        #
+        # field = embed.fields[new_status]
+        # lines = [] if field.value == "> -" else field.value.splitlines()
+        # lines.append(f"> <@{user}>")
+        #
+        # new_count = await count_status(self.event_id, new_status)
+        # embed.set_field_at(
+        #     new_status,
+        #     name=f"{field.name.split('(')[0]}({new_count}/{members})",
+        #     value="\n".join(lines),
+        #     inline=True
+        # )
+
+        await interaction.message.edit(embed=embed)
 
 class ScheduleView(discord.ui.View):
     def __init__(self, title, event_id, channel_id, participants):

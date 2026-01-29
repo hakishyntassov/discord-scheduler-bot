@@ -83,17 +83,27 @@ async def close_database():
     if pool:
         await pool.close()
 
-async def add_event(title, channel_id, guild_id, message_id, count_members, start_timep, end_timep):
+async def add_event(
+    title,
+    channel_id,
+    guild_id,
+    message_id,
+    count_members,
+    start_timep,
+    end_timep
+) -> int:
     async with get_connection() as conn:
-        event_id = await conn.fetchval(
+        return await conn.fetchval(
             """
-            INSERT INTO events (title, 
-                                channel_id, 
-                                guild_id, 
-                                message_id, 
-                                count_members, 
-                                start_timep, 
-                                end_timep)
+            INSERT INTO events (
+                title,
+                channel_id,
+                guild_id,
+                message_id,
+                count_members,
+                start_timep,
+                end_timep
+            )
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
             """,
@@ -105,7 +115,6 @@ async def add_event(title, channel_id, guild_id, message_id, count_members, star
             start_timep,
             end_timep
         )
-        return event_id
 
 async def add_join(event_id, user_id):
     async with get_connection() as conn:
@@ -251,8 +260,9 @@ async def user_in_rsvp(event_id: int, user_id: int) -> bool:
             """
             SELECT EXISTS (SELECT 1
                            FROM rsvp
-                           WHERE event_id = ? 
-                             AND user_id = ?)
+                           WHERE event_id = $1 
+                             AND user_id = $2
+            )
             """,
             event_id,
             user_id
@@ -284,6 +294,36 @@ async def get_rsvp(event_id: int, user_id: int) -> int:
             event_id,
             user_id
         )
+
+async def set_rsvp(event_id: int, user_id: int, status: int) -> bool:
+    async with get_connection() as conn:
+        change = await conn.execute(
+            """
+            INSERT INTO rsvp (event_id, user_id, status)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (event_id, user_id)
+            DO UPDATE
+                SET status = EXCLUDED.status
+                WHERE rsvp.status IS DISTINCT FROM EXCLUDED.status
+            RETURNING 1
+            """,
+            event_id,
+            user_id,
+            status
+        )
+        return change is not None
+
+async def get_rsvp_users(event_id: int):
+    async with get_connection() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT user_id, status
+            FROM rsvp
+            WHERE event_id = $1
+            """,
+            event_id
+        )
+        return rows
 
 async def count_status(event_id: int, status: int) -> int:
     async with get_connection() as conn:

@@ -126,6 +126,34 @@ def add_rsvp(event_id, user_id, status):
         except sqlite3.IntegrityError:
             return False
 
+def get_rsvp_users(event_id: int):
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT user_id, status
+            FROM rsvp
+            WHERE event_id = ?
+            """,
+            (event_id,)
+        )
+        return cursor.fetchall()
+
+def set_rsvp(event_id: int, user_id: int, status: int) -> bool:
+    with get_cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO rsvp (event_id, user_id, status)
+            VALUES (?, ?, ?)
+            ON CONFLICT (event_id, user_id)
+            DO UPDATE
+                SET status = excluded.status
+                WHERE rsvp.status IS NOT excluded.status
+            """,
+            (event_id, user_id, status)
+        )
+
+        return cursor.rowcount > 0
+
 def count_joins(event_id):
     with get_cursor() as cursor:
         cursor.execute(

@@ -7,7 +7,7 @@ from views.views import ScheduleView, rsvpView
 #from db import init_db, add_event, find_overlaps
 from time_parse import parse_time, parse_end_time, parse_end_day
 from datetime import timedelta
-from database import init_db, close_database, add_event, find_overlaps
+from db import init_db, add_event
 
 intents = discord.Intents.default()
 intents.members = True
@@ -17,8 +17,9 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 
 @bot.event
 async def on_ready():
-    await init_db()
+    init_db()
     print("Database initialized")
+    #await add_event("hello", 1, 1, 1, 1, datetime.datetime.now(), datetime.datetime.now())
     await bot.tree.sync()
     print("Application ID:", bot.application_id)
     print(f'Logged in as {bot.user}')
@@ -91,29 +92,23 @@ async def rsvp(interaction: discord.Interaction,
     # ACCEPTED LIST
     embed.add_field(
         name=f"\✅ **Accepted** (0/{len(participants)})",
-        value="> -",
+        value="",
         inline=True
     )
     # MAYBE LIST
     embed.add_field(
         name=f"\❔**Maybe** (0/{len(participants)})",
-        value="> -",
+        value="",
         inline=True
     )
     # DECLINED LIST
     embed.add_field(
         name=f"\❌ **Declined** (0/{len(participants)})",
-        value="> -",
+        value="",
         inline=True
     )
-    # BUTTONS
-    view = rsvpView(
-        title=title,
-        event_id=None,
-        participants=participants
-    )
+    message = await interaction.followup.send(f"> {','.join(m.mention for m in participants)} RSVP to this event :)", wait=True)
     # DISPLAY EMBED AND BUTTONS
-    message = await interaction.followup.send(embed=embed, view=view)
     event_id = add_event(
         title=title,
         channel_id=interaction.channel.id,
@@ -123,8 +118,13 @@ async def rsvp(interaction: discord.Interaction,
         start_timep=start_dt,
         end_timep=end_dt
     )
-    view.event_id = event_id
-
+    # BUTTONS
+    view = rsvpView(
+        title=title,
+        event_id=event_id,
+        participants=participants
+    )
+    await message.edit(embed=embed, view=view)
 
 @bot.tree.command(name="schedule", description="Schedule an event")
 async def schedule(interaction: discord.Interaction,
@@ -208,12 +208,8 @@ async def schedule(interaction: discord.Interaction,
         value="",
         inline=False
     )
-    # BUTTONS
-    view = ScheduleView(title=title, event_id=None, channel_id=channel.id, participants=participants)
-    # ATTENTION MENTION
-    # await channel.send(f"> {role.name} attention!" if role.name == "@everyone" else f"> {role.mention} attention!")
-    # DISPLAY EMBED AND BUTTONS
-    message = await interaction.followup.send(embed=embed, view=view)
+    message = await interaction.followup.send(f"> {','.join(m.mention for m in participants)} Submit your availability in your DMs :)", wait=True)
+    # EMBED
     event_id = add_event(
         title=title,
         channel_id=interaction.channel.id,
@@ -223,7 +219,9 @@ async def schedule(interaction: discord.Interaction,
         start_timep=start_date,
         end_timep=end_date
     )
-    view.event_id = event_id
+    # BUTTONS
+    view = ScheduleView(title=title, event_id=event_id, channel_id=channel.id, participants=participants)
+    await message.edit(embed=embed, view=view)
     print(f'Created event: {title}')
 
 #init_db() # CREATE DATABASE TABLES
