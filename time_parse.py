@@ -1,6 +1,5 @@
-# Helper module to process time
 from datetime import datetime, timedelta, timezone
-from dateutil import parser
+from dateparser import parse
 from zoneinfo import ZoneInfo
 from durations_nlp import Duration
 
@@ -45,38 +44,22 @@ def time_to_label(weekday: int, minutes: int) -> datetime:
     dt = datetime(year, month, day, hour, minute)
     return dt
 
-def parse_time(time: str) -> datetime:
+async def parse_time(time: str) -> datetime:
     default = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    dt = parser.parse(
-        time,
-        fuzzy=True,
-        default=default
-    )
+    dt = parse(time)
     if dt < datetime.now():
         dt += timedelta(days=7)
     print(dt)
     return dt
 
-def parse_end_day(time: str) -> datetime:
-    default = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
-    dt = parser.parse(
-        time,
-        fuzzy=True,
-        default=default
-    )
-    if dt < datetime.now():
-        dt += timedelta(days=7)
-    print(dt)
-    return dt
-
-def parse_end_time(dt: datetime, dur: str = "0"):
+async def parse_dur(dt: datetime, dur: str = "0"):
     duration = Duration(dur)
     duration_minutes = duration.to_minutes()
     dt += timedelta(minutes=duration_minutes)
     print(dt)
     return dt
 
-def parse_time_wd(weekday: int, minutes: int, user_tz: str) -> datetime:
+async def parse_time_wd(weekday: int, minutes: int, user_tz: str) -> datetime:
     """
     weekday: 1=Monday ... 7=Sunday
     minutes: minutes from midnight

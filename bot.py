@@ -1,11 +1,8 @@
-import datetime
-import re
-import discord
+import re, discord
 from discord.ext import commands
 from config import TOKEN
 from views.views import ScheduleView, rsvpView
-#from db import init_db, add_event, find_overlaps
-from time_parse import parse_time, parse_end_time, parse_end_day
+from time_parse import parse_time, parse_dur
 from datetime import timedelta
 from db import init_db, add_event
 
@@ -17,9 +14,8 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 
 @bot.event
 async def on_ready():
-    init_db()
+    await init_db()
     print("Database initialized")
-    #await add_event("hello", 1, 1, 1, 1, datetime.datetime.now(), datetime.datetime.now())
     await bot.tree.sync()
     print("Application ID:", bot.application_id)
     print(f'Logged in as {bot.user}')
@@ -56,13 +52,13 @@ async def rsvp(interaction: discord.Interaction,
     print(f"Participants ({len(participants)}): {[m.id for m in participants]}")
 
     # TIME PARSING
-    start_dt = parse_time(datetime)
+    start_dt = await parse_time(datetime)
     formatted_time = discord.utils.format_dt(start_dt, style='F')
     if duration is None:
         end_dt = None
         formatted_end = ""
     else:
-        end_dt = parse_end_time(start_dt, duration)
+        end_dt = await parse_dur(start_dt, duration)
         formatted_end = discord.utils.format_dt(end_dt, style='F')
 
     # EMBED
@@ -109,7 +105,7 @@ async def rsvp(interaction: discord.Interaction,
     )
     message = await interaction.followup.send(f"> {','.join(m.mention for m in participants)} RSVP to this event :)", wait=True)
     # DISPLAY EMBED AND BUTTONS
-    event_id = add_event(
+    event_id = await add_event(
         title=title,
         channel_id=interaction.channel.id,
         guild_id=interaction.guild.id,
@@ -137,11 +133,11 @@ async def schedule(interaction: discord.Interaction,
                    location: str | None = None):
     await interaction.response.defer()
     # PERIOD
-    start_date = parse_time(start)
+    start_date = await parse_time(start)
     print(start_date)
     start_date_formatted = discord.utils.format_dt(start_date, style='F')
     if end:
-        end_date = parse_end_day(end)
+        end_date = await parse_time(end)
     else:
         end_date = start_date + timedelta(days=6, hours=23, minutes=59, seconds=59)
     if start_date > end_date:
@@ -210,7 +206,7 @@ async def schedule(interaction: discord.Interaction,
     )
     message = await interaction.followup.send(f"> {','.join(m.mention for m in participants)} Submit your availability in your DMs :)", wait=True)
     # EMBED
-    event_id = add_event(
+    event_id = await add_event(
         title=title,
         channel_id=interaction.channel.id,
         guild_id=interaction.guild.id,
@@ -224,5 +220,4 @@ async def schedule(interaction: discord.Interaction,
     await message.edit(embed=embed, view=view)
     print(f'Created event: {title}')
 
-#init_db() # CREATE DATABASE TABLES
 bot.run(TOKEN) # RUN THE BOT

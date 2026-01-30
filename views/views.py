@@ -1,12 +1,8 @@
-import asyncio
 import math
 from datetime import timedelta, datetime, timezone
-from itertools import islice
 import discord
-from discord.ext import commands
-from db import add_join, count_joins, user_in_event, save_availability, find_overlaps, submit_availability, \
-    get_count_submits, get_channel_id, get_count_members, get_joins, get_message_id, get_title, add_rsvp, user_in_rsvp, \
-    change_rsvp, get_rsvp, count_status, get_start_timep, get_end_timep, set_rsvp, get_rsvp_users
+from db import add_join, user_in_event, save_availability, find_overlaps, submit_availability, \
+    get_count_submits, get_count_members, get_joins, get_title, set_rsvp, get_rsvp_users, get_times, get_channel_message
 from time_parse import to_minutes, minutes_to_label, time_to_label, parse_time_wd, get_next_day
 from config import DAY_NAMES
 
@@ -42,21 +38,17 @@ class rsvpView(discord.ui.View):
             await interaction.followup.send("> You can't rsvp to this event", ephemeral=True)
 
     async def remove_add_user(self, interaction, new_status: int):
-        if not set_rsvp(self.event_id, interaction.user.id, new_status):
+        if not await set_rsvp(self.event_id, interaction.user.id, new_status):
             await interaction.followup.send(
                 "> You already RSVP'd to this event",
                 ephemeral=True
             )
             return
-        #
-        # accepted = count_status(self.event_id, 3)
-        # maybe = count_status(self.event_id, 4)
-        # declined = count_status(self.event_id, 5)
 
         embed = interaction.message.embeds[0]
-        total = get_count_members(self.event_id)
+        total = len(self.participants)
 
-        rows = get_rsvp_users(self.event_id)
+        rows = await get_rsvp_users(self.event_id)
 
         accepted = []
         maybe = []
@@ -91,34 +83,6 @@ class rsvpView(discord.ui.View):
             inline=True
         )
 
-        # await change_rsvp(self.event_id, user, new_status)
-        #
-        # field = embed.fields[old_status]
-        # lines = [l for l in field.value.splitlines() if l.strip() != f"> <@{user}>"]
-        # old_count = await count_status(self.event_id, old_status)
-        # members = await get_count_members(self.event_id)
-        # embed.set_field_at(
-        #     old_status,
-        #     name=f"{field.name.split('(')[0]}({old_count}/{members})",
-        #     value="\n".join(lines) if lines else "> -",
-        #     inline=True
-        # )
-        #
-        # else:
-        #     await add_rsvp(self.event_id, user, new_status)
-        #
-        # field = embed.fields[new_status]
-        # lines = [] if field.value == "> -" else field.value.splitlines()
-        # lines.append(f"> <@{user}>")
-        #
-        # new_count = await count_status(self.event_id, new_status)
-        # embed.set_field_at(
-        #     new_status,
-        #     name=f"{field.name.split('(')[0]}({new_count}/{members})",
-        #     value="\n".join(lines),
-        #     inline=True
-        # )
-
         await interaction.message.edit(embed=embed)
 
 class ScheduleView(discord.ui.View):
@@ -133,11 +97,9 @@ class ScheduleView(discord.ui.View):
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)  # no visible reply
         user = interaction.user
-        #print(user.roles)
         if user in self.participants:
-        #if self.role in user.roles:
             # prevent double-join
-            if user_in_event(self.event_id, user.id):
+            if await user_in_event(self.event_id, user.id):
                 await interaction.followup.send(
                     "> You already joined.",
                     ephemeral=True
@@ -145,14 +107,12 @@ class ScheduleView(discord.ui.View):
                 return
             else:
                 try:
-                    guild = interaction.guild
-                    add_join(self.event_id, user.id)
-                    count = count_joins(self.event_id)
-                    list_joins = get_joins(self.event_id)
-                    user_ids = [join[0] for join in list_joins]
+                    await add_join(self.event_id, user.id)
+                    joins = await get_joins(self.event_id)
+                    #user_ids = [join[0] for join in list_joins]
                     names = []
-                    for user_id in user_ids:
-                        names.append(f"> <@{user_id}>")
+                    for user_id in joins:
+                        names.append(f"> <@{user_id[0]}>")
                     embed = interaction.message.embeds[0]
                     embed.set_field_at(
                         3,
@@ -164,20 +124,20 @@ class ScheduleView(discord.ui.View):
 
                     dm = await user.create_dm()
                     msg = await dm.send(
-                        f"👋 Hi! You joined **{self.title}** event :)"
+                        f"> Hi! You joined **{self.title}** event :)"
                     )
 
-                    start_date = get_start_timep(self.event_id)
-                    end_date = get_end_timep(self.event_id)
-                    start_date_strp = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
-                    end_date_strp = datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
+                    times = await get_times(self.event_id)
+                    start_date_strp = datetime.strptime(times[0][0], "%Y-%m-%d %H:%M:%S")
+                    end_date_strp = datetime.strptime(times[0][1], "%Y-%m-%d %H:%M:%S")
                     start_dt_formatted = start_date_strp.strftime("%A %B %d, %Y")
                     await dm.send(
-                        f"📅 Let’s set your availability for **{start_dt_formatted}**.",
+                        f"> Let’s set your availability for **{start_dt_formatted}**.",
                         view=AvailabilityView(
+                            title = self.title,
                             event_id=self.event_id,
                             user_id=user.id,
-                            date1=start_date_strp,
+                            start_date=start_date_strp,
                             end_date=end_date_strp,
                             day_id=start_date_strp.weekday()
                         )
@@ -205,7 +165,7 @@ class ScheduleView(discord.ui.View):
         user = interaction.user
         await interaction.response.defer(ephemeral=True)
 
-        results = find_overlaps(self.event_id, 1)
+        results = await find_overlaps(self.event_id, 1)
 
         if not results:
             await interaction.followup.send(
@@ -216,8 +176,8 @@ class ScheduleView(discord.ui.View):
         else:
             rows = []
 
-            for weekday, start, end, count, pref_count, date1 in results:
-                date = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")
+            for weekday, start, end, count, pref_count, sd in results:
+                date = datetime.strptime(sd, "%Y-%m-%d %H:%M:%S")
                 date_formatted = date.strftime("%B %d, %Y")
                 rows.append({
                     "day": DAY_NAMES[weekday - 1],
@@ -259,37 +219,13 @@ class ScheduleView(discord.ui.View):
             table = "```text\n" + "\n".join(lines) + "\n```"
             await interaction.followup.send(table)
 
-            # lines = ["📊 **Best available times**"]
-            # count_members = get_count_members(self.event_id)
-            # threshold = 0.75 * int(count_members)
-            # min_people = math.floor(threshold)
-            # print(f"Minimum {min_people} people")
-            # shown=0
-            # for weekday, start, end, count, pref_count, date1 in results:
-            #     if count < min_people:
-            #         continue
-            #     date = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")
-            #     date_formatted = date.strftime("%A (%B %d, %Y)")
-            #     count_word = "people" if count > 1 else "person"
-            #     pref_word = "people" if pref_count > 1 else "person"
-            #     lines.append(
-            #         f"**{date_formatted}**: from "
-            #         f"**{minutes_to_label(start)}** to **{minutes_to_label(end)}** "
-            #         f"for **{count}** {count_word} and preferred for **{pref_count}** {pref_word}."
-            #     )
-            #     shown += 1
-            #     if shown == 3:
-            #         break
-            # await interaction.followup.send("\n".join(lines), ephemeral=True)
-
-        #await interaction.followup.send("Results posted!", ephemeral=True)
-
 class AvailabilityView(discord.ui.View):
-    def __init__(self, event_id, user_id, date1, end_date, day_id):
+    def __init__(self, title, event_id, user_id, start_date, end_date, day_id):
         super().__init__(timeout=None)
+        self.title = title
         self.event_id = event_id
         self.user_id = user_id
-        self.date1 = date1
+        self.start_date = start_date
         self.end_date = end_date
         self.day_id = day_id
 
@@ -298,21 +234,19 @@ class AvailabilityView(discord.ui.View):
             next_day_id = 0
         else:
             next_day_id = self.day_id + 1
-        next_day = get_next_day(self.date1)
+        next_day = self.start_date + timedelta(days=1)
         next_day_formatted = datetime.strftime(next_day, "%A %B %d, %Y")
         if next_day <= self.end_date:
             await interaction.followup.send(
-                f"📅 Let’s set your availability for **{next_day_formatted}**",
-                view=AvailabilityView(self.event_id, self.user_id, next_day, self.end_date, next_day_id)
+                f"> Let’s set your availability for **{next_day_formatted}**",
+                view=AvailabilityView(self.title, self.event_id, self.user_id, next_day, self.end_date, next_day_id)
             )
         else:
             submit_availability(event_id=self.event_id, user_id=self.user_id)
-
-            channel_id = get_channel_id(self.event_id)
-            message_id = get_message_id(self.event_id)
-            print(f"Channel: {channel_id}, Message: {message_id}")
-            channel = interaction.client.get_channel(channel_id)
-            message = await channel.fetch_message(message_id)
+            channel_message = await get_channel_message(self.event_id)
+            print(f"Channel: {channel_message[0][0]}, Message: {channel_message[0][1]}")
+            channel = interaction.client.get_channel(channel_message[0][0])
+            message = await channel.fetch_message(channel_message[0][1])
             embed = message.embeds[0]
             if embed.fields[1].value not in ("-", "", None):
                 updated_value = embed.fields[1].value + f"\n> <@{self.user_id}>"
@@ -329,28 +263,26 @@ class AvailabilityView(discord.ui.View):
 
             await message.edit(embed=embed)
             await interaction.followup.send(
-                "✅ Your availability is submitted! When everyone submits their selections, I'll post results in your channel!",
+                "> Your availability is submitted! When everyone submits their selections, I'll post results in your channel!",
                 ephemeral=True
             )
 
             # automatic send results
-            title = get_title(self.event_id)
-            count_submits = get_count_submits(self.event_id)
-            count_members = get_count_members(self.event_id)
+            count_submits = await get_count_submits(self.event_id)
+            count_members = await get_count_members(self.event_id)
             threshold = 0.75 * int(count_members)
             min_people = math.floor(threshold)
-            results = find_overlaps(self.event_id, min_people)
+            results = await find_overlaps(self.event_id, min_people)
             if count_submits == count_members:
                 start_dt = parse_time_wd(results[0][0], results[0][1], user_tz="America/New_York")
                 end_dt = parse_time_wd(results[0][0], results[0][2], user_tz="America/New_York")
                 if results[0][3] == count_members:
-                    list_joins = get_joins(self.event_id)
-                    user_ids = [join[0] for join in list_joins]
+                    joins = await get_joins(self.event_id)
                     names = []
-                    for user_id in user_ids:
-                        names.append(f"> <@{user_id}>")
+                    for user_id in joins:
+                        names.append(f"> <@{user_id[0]}>")
                     embed = discord.Embed(
-                        title=f"**Event**: {title}",
+                        title=f"**Event**: {self.title}",
                         description="Good news! Everybody is free :)",
                         color=discord.Color.green()
                     )
@@ -364,7 +296,7 @@ class AvailabilityView(discord.ui.View):
                         value="\n".join(names),
                         inline=False
                     )
-                    view = resultsView(title, results)
+                    view = ResultsView(self.title, results)
                     await channel.send(embed=embed,view=view)
                     await message.delete()
                 else:
@@ -374,10 +306,10 @@ class AvailabilityView(discord.ui.View):
                             duration=timedelta(hours=24)
                         )
                         shown = 0
-                        for weekday, start, end, count, pref_count, date1 in results:
+                        for weekday, start, end, count, pref_count, sd in results:
                             if count >= min_people:
                                 continue
-                            start_formatted = date1.strftime("%A (%d/%m/%y)")
+                            start_formatted = sd.strftime("%A (%d/%m/%y)")
                             count_word = "people" if count != 1 else "person"
                             time_option = f"{start_formatted}: {minutes_to_label(start)}-{minutes_to_label(end)} | {count} {count_word}"
                             poll_obj.add_answer(text=time_option)
@@ -394,9 +326,10 @@ class AvailabilityView(discord.ui.View):
     async def fill_times_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(
             AvailabilityModal(
+                title=self.title,
                 event_id=self.event_id,
                 user_id=self.user_id,
-                date1=self.date1,
+                start_date=self.start_date,
                 end_date=self.end_date,
                 day_id=self.day_id,
                 is_preferred=False
@@ -407,9 +340,10 @@ class AvailabilityView(discord.ui.View):
     async def preferred(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(
             AvailabilityModal(
+                title=self.title,
                 event_id=self.event_id,
                 user_id=self.user_id,
-                date1=self.date1,
+                start_date=self.start_date,
                 end_date=self.end_date,
                 day_id=self.day_id,
                 is_preferred=True
@@ -428,11 +362,11 @@ class AvailabilityView(discord.ui.View):
     @discord.ui.button(label="♾️All Day", style=discord.ButtonStyle.secondary, row=0)
     async def always(self, interaction: discord.Interaction, button):
         await interaction.response.defer()
-        save_availability(
+        await save_availability(
             event_id=self.event_id,
             user_id=self.user_id,
             weekday=self.day_id+1,
-            date1=self.date1,
+            start_date=self.start_date,
             raw_input="12am",
             is_preferred=True
         )
@@ -443,11 +377,12 @@ class AvailabilityView(discord.ui.View):
         await self.cycle(interaction)
 
 class AvailabilityModal(discord.ui.Modal):
-    def __init__(self, event_id, user_id, date1, end_date, day_id, is_preferred):
+    def __init__(self, title, event_id, user_id, start_date, end_date, day_id, is_preferred):
         super().__init__(title=f"{DAY_NAMES[day_id]} Availability")
+        self.title = title
         self.event_id = event_id
         self.user_id = user_id
-        self.date1 = date1
+        self.start_date = start_date
         self.end_date = end_date
         self.day_id = day_id
         self.is_preferred = is_preferred
@@ -464,11 +399,11 @@ class AvailabilityModal(discord.ui.Modal):
             return
         await interaction.response.defer()
 
-        save_availability(
+        await save_availability(
             event_id=self.event_id,
             user_id=self.user_id,
             weekday=self.day_id+1,
-            date1=self.date1,
+            start_date=self.start_date,
             raw_input=self.times.value,
             is_preferred=self.is_preferred
         )
@@ -477,9 +412,9 @@ class AvailabilityModal(discord.ui.Modal):
         except discord.NotFound:
             pass
 
-        await AvailabilityView(self.event_id, self.user_id, self.date1, self.end_date, self.day_id).cycle(interaction)
+        await AvailabilityView(self.title, self.event_id, self.user_id, self.start_date, self.end_date, self.day_id).cycle(interaction)
 
-class resultsView(discord.ui.View):
+class ResultsView(discord.ui.View):
     def __init__(self, title: str, results):
         super().__init__(timeout=None)
         self.title = title
@@ -488,8 +423,8 @@ class resultsView(discord.ui.View):
     @discord.ui.button(label="Add event", style=discord.ButtonStyle.primary, row=0)
     async def event_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-        start_dt = parse_time_wd(self.results[0][0], self.results[0][1], user_tz="America/New_York")
-        end_dt = parse_time_wd(self.results[0][0], self.results[0][2], user_tz="America/New_York")
+        start_dt = await parse_time_wd(self.results[0][0], self.results[0][1], user_tz="America/New_York")
+        end_dt = await parse_time_wd(self.results[0][0], self.results[0][2], user_tz="America/New_York")
         await interaction.guild.create_scheduled_event(
             name=f"{self.title}",
             start_time=start_dt,

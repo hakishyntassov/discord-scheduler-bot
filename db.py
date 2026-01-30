@@ -3,12 +3,11 @@ import sqlite3
 import re
 from collections import defaultdict
 from contextlib import contextmanager
-
 from time_parse import to_minutes, minutes_to_label
 
 DB_PATH = "events.db"
 
-def init_db():
+async def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -51,7 +50,7 @@ def init_db():
             event_id        INTEGER NOT NULL,
             user_id         INTEGER NOT NULL,
             weekday         INTEGER NOT NULL,
-            date1           DATETIME NOT NULL,
+            start_date           DATETIME NOT NULL,
             start_time      TEXT NOT NULL,
             end_time        TEXT NOT NULL,
             is_preferred    BOOLEAN DEFAULT FALSE,
@@ -87,7 +86,7 @@ def get_cursor():
     finally:
         conn.close()
 
-def add_event(title, channel_id, guild_id, message_id, count_members, start_timep, end_timep):
+async def add_event(title, channel_id, guild_id, message_id, count_members, start_timep, end_timep):
     with get_cursor() as cursor:
         cursor.execute(
             """
@@ -98,7 +97,7 @@ def add_event(title, channel_id, guild_id, message_id, count_members, start_time
         )
         return cursor.lastrowid
 
-def add_join(event_id, user_id):
+async def add_join(event_id, user_id):
     with get_cursor() as cursor:
         try:
             cursor.execute(
@@ -112,7 +111,7 @@ def add_join(event_id, user_id):
         except sqlite3.IntegrityError:
             return False
 
-def add_rsvp(event_id, user_id, status):
+async def add_rsvp(event_id, user_id, status):
     with get_cursor() as cursor:
         try:
             cursor.execute(
@@ -126,7 +125,7 @@ def add_rsvp(event_id, user_id, status):
         except sqlite3.IntegrityError:
             return False
 
-def get_rsvp_users(event_id: int):
+async def get_rsvp_users(event_id: int):
     with get_cursor() as cursor:
         cursor.execute(
             """
@@ -138,7 +137,7 @@ def get_rsvp_users(event_id: int):
         )
         return cursor.fetchall()
 
-def set_rsvp(event_id: int, user_id: int, status: int) -> bool:
+async def set_rsvp(event_id: int, user_id: int, status: int) -> bool:
     with get_cursor() as cursor:
         cursor.execute(
             """
@@ -166,7 +165,7 @@ def count_joins(event_id):
         )
         return cursor.fetchone()[0]
 
-def get_joins(event_id):
+async def get_joins(event_id):
     with get_cursor() as cursor:
         cursor.execute(
             """
@@ -190,17 +189,17 @@ def get_message_id(event_id: int):
         )
         return cursor.fetchone()[0]
 
-def get_channel_id(event_id: int):
+async def get_channel_message(event_id: int):
     with get_cursor() as cursor:
         cursor.execute(
             """
-            SELECT channel_id 
+            SELECT channel_id, message_id
             FROM events
             WHERE id = ?
             """,
             (event_id,)
         )
-        return cursor.fetchone()[0]
+        return cursor.fetchall()
 
 def get_not_submitted(event_id: int):
     with get_cursor() as cursor:
@@ -238,17 +237,17 @@ def get_title(event_id: int):
         )
         return cursor.fetchone()[0]
 
-def get_start_timep(event_id: int):
+async def get_times(event_id: int):
     with get_cursor() as cursor:
         cursor.execute(
             """
-            SELECT start_timep
+            SELECT start_timep, end_timep
             FROM events
             WHERE id = ?
             """,
             (event_id,)
         )
-        return cursor.fetchone()[0]
+        return cursor.fetchall()
 
 def get_end_timep(event_id: int):
     with get_cursor() as cursor:
@@ -262,7 +261,7 @@ def get_end_timep(event_id: int):
         )
         return cursor.fetchone()[0]
 
-def user_in_event(event_id: int, user_id: int) -> bool:
+async def user_in_event(event_id: int, user_id: int) -> bool:
     with get_cursor() as cursor:
         cursor.execute(
             """
@@ -324,7 +323,7 @@ def count_status(event_id: int, status: int) -> int:
         )
         return cursor.fetchone()[0]
 
-def save_availability(event_id: int, user_id: int, weekday: int, date1: str, raw_input: str, is_preferred: bool):
+async def save_availability(event_id: int, user_id: int, weekday: int, start_date: str, raw_input: str, is_preferred: bool):
     TIME_RANGE_REGEX = re.compile(
         r"""
         (?P<start_hour>1[0-2]|0?[1-9]|2[0-3])
@@ -370,10 +369,10 @@ def save_availability(event_id: int, user_id: int, weekday: int, date1: str, raw
         with get_cursor() as cursor:
             cursor.execute(
                 """
-                INSERT INTO availability (event_id, user_id, weekday, date1, start_time, end_time, is_preferred)
+                INSERT INTO availability (event_id, user_id, weekday, start_date, start_time, end_time, is_preferred)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (event_id, user_id, weekday, date1, start_time, end_time, is_preferred)
+                (event_id, user_id, weekday, start_date, start_time, end_time, is_preferred)
             )
 
 def submit_availability(event_id: int, user_id: int):
@@ -388,7 +387,7 @@ def submit_availability(event_id: int, user_id: int):
             (event_id, user_id)
         )
 
-def get_count_members(event_id: int):
+async def get_count_members(event_id: int):
     with get_cursor() as cursor:
         cursor.execute(
             """
@@ -400,7 +399,7 @@ def get_count_members(event_id: int):
         )
         return cursor.fetchone()[0]
 
-def get_count_submits(event_id: int):
+async def get_count_submits(event_id: int):
     with get_cursor() as cursor:
         cursor.execute(
             """
@@ -412,11 +411,11 @@ def get_count_submits(event_id: int):
         )
         return cursor.fetchone()[0]
 
-def find_overlaps(event_id: int, min_people: int):
+async def find_overlaps(event_id: int, min_people: int):
     with get_cursor() as cursor:
         rows = cursor.execute(
             """
-            SELECT weekday, date1, start_time, end_time, is_preferred
+            SELECT weekday, start_date, start_time, end_time, is_preferred
             FROM availability
             WHERE event_id = ?
             """,
@@ -424,16 +423,16 @@ def find_overlaps(event_id: int, min_people: int):
         ).fetchall()
 
     events = defaultdict(list)
-    for weekday, date1, start_time, end_time, is_preferred in rows:
+    for weekday, start_date, start_time, end_time, is_preferred in rows:
         start_time = int(start_time)
         end_time = int(end_time)
 
         pref = 1 if is_preferred else 0
-        events[weekday].append((start_time, +1, +pref, date1))
-        events[weekday].append((end_time, -1, -pref, date1))
+        events[weekday].append((start_time, +1, +pref, start_date))
+        events[weekday].append((end_time, -1, -pref, start_date))
 
         print(
-            f"{weekday}: {date1} "
+            f"{weekday}: {start_date} "
             f"{minutes_to_label(start_time)}–{minutes_to_label(end_time)} "
             f"Preferred: {is_preferred}"
         )
@@ -452,7 +451,7 @@ def find_overlaps(event_id: int, min_people: int):
         count = 0
         pref_count = 0
         for i in range(len(points) - 1):
-            time, delta, pref_delta, date1 = points[i]
+            time, delta, pref_delta, start_date = points[i]
             count += delta  # apply change at boundary
             print(f"Count: {count}")
             pref_count += pref_delta
@@ -460,21 +459,21 @@ def find_overlaps(event_id: int, min_people: int):
             next_time = points[i + 1][0]
 
             if count >= min_people and time < next_time:
-                results.append((weekday, time, next_time, count, pref_count, date1))
+                results.append((weekday, time, next_time, count, pref_count, start_date))
 
     results.sort(key=lambda r: (r[3], r[4], r[0]), reverse=True)
 
     lines = ["📊 **Best available times**"]
-    count_members = get_count_members(event_id)
+    count_members = await get_count_members(event_id)
     print(count_members)
     threshold = 0.75 * int(count_members)
     min = math.floor(threshold)
     print(f"Minimum {min} people")
 
-    for weekday, start, end, count, pref_count, date1 in results:
+    for weekday, start, end, count, pref_count, start_date in results:
         if count >= min:
             print(
-                f"{weekday}: {date1} | "
+                f"{weekday}: {start_date} | "
                 f"**{minutes_to_label(start)}–{minutes_to_label(end)}** | "
                 f"for **{count}** people and preferred for **{pref_count}** people."
             )
