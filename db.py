@@ -37,7 +37,7 @@ async def init_db():
             count_members  INTEGER NOT NULL,
             start_timep     DATETIME NOT NULL,
             end_timep       DATETIME,
-            created_at     TEXT DEFAULT (datetime('now'))
+            created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
@@ -49,7 +49,7 @@ async def init_db():
             event_id    INTEGER NOT NULL,
             user_id     INTEGER NOT NULL,
             submitted   BOOLEAN DEFAULT 0,
-            joined_at   TEXT DEFAULT (datetime('now')),
+            joined_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (event_id, user_id),
             FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
         )
@@ -92,7 +92,13 @@ async def init_db():
 
 @contextmanager
 def get_cursor():
-    conn = sqlite3.connect(DB_PATH)
+    conn = mysql.connector.connect(
+        host=MYSQL_HOST,
+        port=MYSQL_PORT,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        database=MYSQL_DATABASE,
+    )
     try:
         cursor = conn.cursor()
         yield cursor
