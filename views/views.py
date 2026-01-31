@@ -251,7 +251,7 @@ class AvailabilityView(discord.ui.View):
             channel = interaction.client.get_channel(channel_message[0][0])
             message = await channel.fetch_message(channel_message[0][1])
             embed = message.embeds[0]
-            if embed.fields[1].value not in ("-", "", None, "Not specified"):
+            if embed.fields[1].value not in ("-", "", None, "> Not specified"):
                 updated_value = embed.fields[1].value + f"\n> <@{self.user_id}>"
             else:
                 updated_value = f"> <@{self.user_id}>"
