@@ -29,7 +29,7 @@ async def init_db():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS events (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            id             INTEGER PRIMARY KEY AUTO_INCREMENT,
             title          TEXT NOT NULL,
             channel_id     INTEGER NOT NULL,
             guild_id       INTEGER NOT NULL,
@@ -60,7 +60,7 @@ async def init_db():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS availability (
-            availability_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            availability_id INTEGER PRIMARY KEY AUTO_INCREMENT,
             event_id        INTEGER NOT NULL,
             user_id         INTEGER NOT NULL,
             weekday         INTEGER NOT NULL,
@@ -77,7 +77,7 @@ async def init_db():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS rsvp (
-            rsvp_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rsvp_id INTEGER PRIMARY KEY AUTO_INCREMENT,
             event_id        INTEGER NOT NULL,
             user_id         INTEGER NOT NULL,
             status          INTEGER NOT NULL,
