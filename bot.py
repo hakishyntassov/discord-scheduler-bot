@@ -28,7 +28,7 @@ async def on_message(message):
 @bot.tree.command(name="rsvp", description="RSVP")
 async def rsvp(interaction: discord.Interaction,
                title: str,
-               datetime: str,
+               time: str,
                description: str | None = None,
                duration: str | None = None,
                location: str | None = None,
@@ -52,17 +52,15 @@ async def rsvp(interaction: discord.Interaction,
     print(f"Participants ({len(participants)}): {[m.id for m in participants]}")
 
     # TIME PARSING
-    start_dt = await parse_time(datetime)
-    start_dt = start_dt.replace(tzinfo = timezone.utc)
+    start_dt = await parse_time(time)
     print(f"Start dt: {start_dt}")
     formatted_time = discord.utils.format_dt(start_dt, style='F')
-    print(f"Formatted: {formatted_time}")
+    print(f"Formatted: {formatted_time}!")
     if duration is None:
         end_dt = None
         formatted_end = ""
     else:
         end_dt = await parse_dur(start_dt, duration)
-        end_dt = end_dt.replace(tzinfo = timezone.utc)
         formatted_end = discord.utils.format_dt(end_dt, style='F')
 
     # EMBED
@@ -138,15 +136,18 @@ async def schedule(interaction: discord.Interaction,
     await interaction.response.defer()
     # PERIOD
     start_date = await parse_time(start)
-    print(start_date)
-    start_date_formatted = discord.utils.format_dt(start_date.replace(tzinfo=timezone.utc), style='F')
+    print(f"Start dt: {start_date}")
+    formatted_time = discord.utils.format_dt(start_date, style='F')
+    print(f"Formatted: {formatted_time}!")
     if end:
         end_date = await parse_time(end)
     else:
         end_date = start_date + timedelta(days=6, hours=23, minutes=59, seconds=59)
     if start_date > end_date:
         end_date = end_date + timedelta(days=7)
+    print(f"End dt: {end_date}")
     end_date_formatted = discord.utils.format_dt(end_date, style='F')
+    print(f"End formatted: {end_date_formatted}")
     # PARTICIPANTS
     channel = interaction.channel
     participants = set()
@@ -181,7 +182,7 @@ async def schedule(interaction: discord.Interaction,
     # PERIOD FIELD
     embed.add_field(
         name="**Schedule Period**",
-        value=f">>> From: {start_date_formatted}\nTo: {end_date_formatted}",
+        value=f">>> From: {formatted_time}\nTo: {end_date_formatted}",
         inline=False
     )
     # LOCATION FIELD

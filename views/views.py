@@ -277,8 +277,11 @@ class AvailabilityView(discord.ui.View):
             min_people = math.floor(threshold)
             results = await find_overlaps(self.event_id, min_people)
             if count_submits == count_members:
-                start_dt = parse_time_wd(results[0][0], results[0][1], user_tz="America/New_York")
-                end_dt = parse_time_wd(results[0][0], results[0][2], user_tz="America/New_York")
+                print(f"Date: {results[0][5]}")
+                #start_dt = results[0][5] + timedelta(minutes=results[0][1])
+                #end_dt = results[0][5] + timedelta(minutes=results[0][2])
+                #start_dt = await parse_time_wd(results[0][0], results[0][1], user_tz="America/New_York")
+                #end_dt = await parse_time_wd(results[0][0], results[0][2], user_tz="America/New_York")
                 if results[0][3] == count_members:
                     joins = await get_joins(self.event_id)
                     names = []
@@ -291,7 +294,7 @@ class AvailabilityView(discord.ui.View):
                     )
                     embed.add_field(
                         name="**Time**",
-                        value=f"> {discord.utils.format_dt(start_dt, style='F')} - {discord.utils.format_dt(end_dt, style='F')}",
+                        value=f"> {DAY_NAMES[results[0][0]-1]} : {minutes_to_label(results[0][1])}-{minutes_to_label(results[0][2])}",
                         inline=False
                     )
                     embed.add_field(
@@ -430,8 +433,8 @@ class ResultsView(discord.ui.View):
         end_dt = await parse_time_wd(self.results[0][0], self.results[0][2], user_tz="America/New_York")
         await interaction.guild.create_scheduled_event(
             name=f"{self.title}",
-            start_time=start_dt,
-            end_time=end_dt,
+            start_time=self.start_dt,
+            end_time=self.end_dt,
             privacy_level=discord.PrivacyLevel.guild_only,
             entity_type=discord.EntityType.external,
             location="location"
