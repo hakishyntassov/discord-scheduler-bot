@@ -70,6 +70,11 @@ async def init_db():
         );
         """)
 
+        await conn.execute("""
+        ALTER TABLE availability
+        ALTER COLUMN start_date TYPE TIMESTAMPTZ;
+        """)
+
     print("Postgres schema initialized")
 
 @asynccontextmanager
@@ -111,7 +116,10 @@ async def add_join(event_id, user_id):
     async with get_connection() as conn:
         await conn.execute(
             """
-            INSERT INTO event_joins (event_id, user_id)
+            INSERT INTO event_joins (
+                event_id, 
+                user_id
+            )
             VALUES ($1, $2)
             """,
             event_id,
@@ -316,7 +324,7 @@ async def get_rsvp(event_id: int, user_id: int) -> int:
 
 async def set_rsvp(event_id: int, user_id: int, status: int) -> bool:
     async with get_connection() as conn:
-        change = await conn.execute(
+        change = await conn.fetchrow(
             """
             INSERT INTO rsvp (event_id, user_id, status)
             VALUES ($1, $2, $3)
@@ -357,7 +365,7 @@ async def count_status(event_id: int, status: int) -> int:
             status
         )
 
-async def save_availability(event_id: int, user_id: int, weekday: int, start_date: str, raw_input: str, is_preferred: bool):
+async def save_availability(event_id: int, user_id: int, weekday: int, start_date: datetime, raw_input: str, is_preferred: bool):
     TIME_RANGE_REGEX = re.compile(
         r"""
         (?P<start_hour>1[0-2]|0?[1-9]|2[0-3])

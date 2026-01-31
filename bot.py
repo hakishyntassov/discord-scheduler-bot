@@ -3,7 +3,7 @@ from discord.ext import commands
 from config import TOKEN
 from views.views import ScheduleView, rsvpView
 from time_parse import parse_time, parse_dur
-from datetime import timedelta, timezone
+from datetime import timedelta, timezone, datetime
 from database import init_db, add_event
 
 intents = discord.Intents.default()
@@ -135,12 +135,14 @@ async def schedule(interaction: discord.Interaction,
                    location: str | None = None):
     await interaction.response.defer()
     # PERIOD
-    start_date = await parse_time(start)
+    start_base = datetime(2026, 1, 31, 0, 0, 0)
+    start_date = await parse_time(start, start_base)
     print(f"Start dt: {start_date}")
     formatted_time = discord.utils.format_dt(start_date, style='F')
     print(f"Formatted: {formatted_time}!")
     if end:
-        end_date = await parse_time(end)
+        end_base = datetime(2026, 2, 6, 23, 59, 59)
+        end_date = await parse_time(end, end_base)
     else:
         end_date = start_date + timedelta(days=6, hours=23, minutes=59, seconds=59)
     if start_date > end_date:

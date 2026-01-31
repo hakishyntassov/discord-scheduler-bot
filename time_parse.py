@@ -46,8 +46,9 @@ def time_to_label(weekday: int, minutes: int) -> datetime:
     dt = datetime(year, month, day, hour, minute)
     return dt
 
-async def parse_time(time: str) -> datetime:
-    dt = parse(time)
+async def parse_time(time: str, base: datetime) -> datetime:
+    dt = parse(time, settings={'RELATIVE_BASE': base})
+    print(f"dt: {dt}")
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=NY_TZ)
     dt = dt.astimezone(timezone.utc)

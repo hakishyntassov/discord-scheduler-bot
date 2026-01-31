@@ -2,7 +2,7 @@ import math
 from datetime import timedelta, datetime, timezone
 import discord
 from database import add_join, user_in_event, save_availability, find_overlaps, submit_availability, \
-    get_count_submits, get_count_members, get_joins, get_title, set_rsvp, get_rsvp_users, get_times, get_channel_message
+    get_count_submits, get_count_members, get_joins, set_rsvp, get_rsvp_users, get_times, get_channel_message
 from time_parse import to_minutes, minutes_to_label, time_to_label, parse_time_wd, get_next_day
 from config import DAY_NAMES
 
@@ -17,27 +17,27 @@ class rsvpView(discord.ui.View):
     async def rsvp_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         if interaction.user in self.participants:
-            await self.remove_add_user(interaction, 3)
+            await self.set_user(interaction, 3)
         else:
-            await interaction.followup.send("> You can't rsvp to this event", ephemeral=True)
+            await interaction.followup.send("> You can't RSVP to this event", ephemeral=True)
 
     @discord.ui.button(label="❔", style=discord.ButtonStyle.primary, row=0)
     async def maybe_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         if interaction.user in self.participants:
-            await self.remove_add_user(interaction, 4)
+            await self.set_user(interaction, 4)
         else:
-            await interaction.followup.send("> You can't rsvp to this event", ephemeral=True)
+            await interaction.followup.send("> You can't RSVP to this event", ephemeral=True)
 
     @discord.ui.button(label="❌", style=discord.ButtonStyle.primary, row=0)
     async def decline_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         if interaction.user in self.participants:
-            await self.remove_add_user(interaction, 5)
+            await self.set_user(interaction, 5)
         else:
-            await interaction.followup.send("> You can't rsvp to this event", ephemeral=True)
+            await interaction.followup.send("> You can't RSVP to this event", ephemeral=True)
 
-    async def remove_add_user(self, interaction, new_status: int):
+    async def set_user(self, interaction, new_status: int):
         if not await set_rsvp(self.event_id, interaction.user.id, new_status):
             await interaction.followup.send(
                 "> You already RSVP'd to this event",
@@ -86,7 +86,7 @@ class rsvpView(discord.ui.View):
         await interaction.message.edit(embed=embed)
 
 class ScheduleView(discord.ui.View):
-    def __init__(self, title, event_id, channel_id, participants):
+    def __init__(self, title: str, event_id: id, channel_id: id, participants: list):
         super().__init__(timeout=None)
         self.title = title
         self.event_id = event_id
@@ -223,7 +223,7 @@ class ScheduleView(discord.ui.View):
             await interaction.followup.send(table)
 
 class AvailabilityView(discord.ui.View):
-    def __init__(self, title, event_id, user_id, start_date, end_date, day_id):
+    def __init__(self, title: str, event_id: int, user_id: int, start_date: datetime, end_date: datetime, day_id: int):
         super().__init__(timeout=None)
         self.title = title
         self.event_id = event_id
@@ -383,7 +383,7 @@ class AvailabilityView(discord.ui.View):
         await self.cycle(interaction)
 
 class AvailabilityModal(discord.ui.Modal):
-    def __init__(self, title, event_id, user_id, start_date, end_date, day_id, is_preferred):
+    def __init__(self, title: str, event_id: int, user_id: int, start_date: datetime, end_date: datetime, day_id: int, is_preferred: bool):
         super().__init__(title=f"{DAY_NAMES[day_id]} Availability")
         self.title = title
         self.event_id = event_id
@@ -421,7 +421,7 @@ class AvailabilityModal(discord.ui.Modal):
         await AvailabilityView(self.title, self.event_id, self.user_id, self.start_date, self.end_date, self.day_id).cycle(interaction)
 
 class ResultsView(discord.ui.View):
-    def __init__(self, title: str, results):
+    def __init__(self, title: str, results: list):
         super().__init__(timeout=None)
         self.title = title
         self.results = results
