@@ -4,7 +4,7 @@ from config import TOKEN
 from views.views import ScheduleView, rsvpView
 from time_parse import parse_time, parse_dur
 from datetime import timedelta
-from db import init_db, add_event
+from database import init_db, add_event
 
 intents = discord.Intents.default()
 intents.members = True

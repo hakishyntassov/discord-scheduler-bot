@@ -1,7 +1,7 @@
 import math
 from datetime import timedelta, datetime, timezone
 import discord
-from db import add_join, user_in_event, save_availability, find_overlaps, submit_availability, \
+from database import add_join, user_in_event, save_availability, find_overlaps, submit_availability, \
     get_count_submits, get_count_members, get_joins, get_title, set_rsvp, get_rsvp_users, get_times, get_channel_message
 from time_parse import to_minutes, minutes_to_label, time_to_label, parse_time_wd, get_next_day
 from config import DAY_NAMES
@@ -112,7 +112,7 @@ class ScheduleView(discord.ui.View):
                     #user_ids = [join[0] for join in list_joins]
                     names = []
                     for user_id in joins:
-                        names.append(f"> <@{user_id[0]}>")
+                        names.append(f"> <@{user_id}>")
                     embed = interaction.message.embeds[0]
                     embed.set_field_at(
                         3,
@@ -127,10 +127,13 @@ class ScheduleView(discord.ui.View):
                         f"> Hi! You joined **{self.title}** event :)"
                     )
 
-                    times = await get_times(self.event_id)
-                    start_date_strp = datetime.strptime(times[0][0], "%Y-%m-%d %H:%M:%S")
-                    end_date_strp = datetime.strptime(times[0][1], "%Y-%m-%d %H:%M:%S")
+                    #times = await get_times(self.event_id)
+                    #start_date_strp = datetime.strptime(times[0][0], "%Y-%m-%d %H:%M:%S")
+                    #end_date_strp = datetime.strptime(times[0][1], "%Y-%m-%d %H:%M:%S")
+
+                    start_date_strp, end_date_strp = await get_times(self.event_id)
                     start_dt_formatted = start_date_strp.strftime("%A %B %d, %Y")
+
                     await dm.send(
                         f"> Let’s set your availability for **{start_dt_formatted}**.",
                         view=AvailabilityView(
@@ -177,8 +180,8 @@ class ScheduleView(discord.ui.View):
             rows = []
 
             for weekday, start, end, count, pref_count, sd in results:
-                date = datetime.strptime(sd, "%Y-%m-%d %H:%M:%S")
-                date_formatted = date.strftime("%B %d, %Y")
+                #date = datetime.strptime(sd, "%Y-%m-%d %H:%M:%S")
+                date_formatted = sd.strftime("%B %d, %Y")
                 rows.append({
                     "day": DAY_NAMES[weekday - 1],
                     "date": date_formatted,
@@ -242,13 +245,13 @@ class AvailabilityView(discord.ui.View):
                 view=AvailabilityView(self.title, self.event_id, self.user_id, next_day, self.end_date, next_day_id)
             )
         else:
-            submit_availability(event_id=self.event_id, user_id=self.user_id)
+            await submit_availability(event_id=self.event_id, user_id=self.user_id)
             channel_message = await get_channel_message(self.event_id)
             print(f"Channel: {channel_message[0][0]}, Message: {channel_message[0][1]}")
             channel = interaction.client.get_channel(channel_message[0][0])
             message = await channel.fetch_message(channel_message[0][1])
             embed = message.embeds[0]
-            if embed.fields[1].value not in ("-", "", None):
+            if embed.fields[1].value not in ("-", "", None, "Not specified"):
                 updated_value = embed.fields[1].value + f"\n> <@{self.user_id}>"
             else:
                 updated_value = f"> <@{self.user_id}>"
@@ -280,7 +283,7 @@ class AvailabilityView(discord.ui.View):
                     joins = await get_joins(self.event_id)
                     names = []
                     for user_id in joins:
-                        names.append(f"> <@{user_id[0]}>")
+                        names.append(f"> <@{user_id}>")
                     embed = discord.Embed(
                         title=f"**Event**: {self.title}",
                         description="Good news! Everybody is free :)",

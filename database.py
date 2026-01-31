@@ -47,14 +47,13 @@ async def init_db():
             event_id        BIGINT NOT NULL,
             user_id         BIGINT NOT NULL,
             weekday         INTEGER NOT NULL,
-            date1           DATE NOT NULL,
-            start_time      TIME NOT NULL,
-            end_time        TIME NOT NULL,
+            start_date      DATE NOT NULL,
+            start_time      INTEGER NOT NULL,
+            end_time        INTEGER NOT NULL,
             is_preferred    BOOLEAN DEFAULT FALSE,
             FOREIGN KEY (event_id)
                 REFERENCES events(id)
-                ON DELETE CASCADE,
-            UNIQUE (event_id, user_id, weekday, date1, start_time, end_time)
+                ON DELETE CASCADE
         );
         """)
 
@@ -83,15 +82,7 @@ async def close_database():
     if pool:
         await pool.close()
 
-async def add_event(
-    title,
-    channel_id,
-    guild_id,
-    message_id,
-    count_members,
-    start_timep,
-    end_timep
-) -> int:
+async def add_event(title, channel_id, guild_id, message_id, count_members, start_timep, end_timep) -> int:
     async with get_connection() as conn:
         return await conn.fetchval(
             """
@@ -138,6 +129,34 @@ async def add_rsvp(event_id, user_id, status):
             user_id,
             status
             )
+
+async def get_times(event_id: int):
+    async with get_connection() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT start_timep, end_timep
+            FROM events
+            WHERE id = $1
+            """,
+            event_id
+        )
+
+        if row is None:
+            return None
+
+        return row["start_timep"], row["end_timep"]
+
+async def get_channel_message(event_id: int):
+    async with get_connection() as conn:
+        ch_msg = await conn.fetch(
+            """
+            SELECT channel_id, message_id
+            FROM events
+            WHERE id = $1
+            """,
+            event_id
+        )
+        return ch_msg
 
 async def count_joins(event_id) -> int:
     async with get_connection() as conn:
@@ -338,7 +357,7 @@ async def count_status(event_id: int, status: int) -> int:
             status
         )
 
-async def save_availability(event_id: int, user_id: int, weekday: int, date1: str, raw_input: str, is_preferred: bool):
+async def save_availability(event_id: int, user_id: int, weekday: int, start_date: str, raw_input: str, is_preferred: bool):
     TIME_RANGE_REGEX = re.compile(
         r"""
         (?P<start_hour>1[0-2]|0?[1-9]|2[0-3])
@@ -387,19 +406,16 @@ async def save_availability(event_id: int, user_id: int, weekday: int, date1: st
                 INSERT INTO availability (event_id,
                                           user_id,
                                           weekday,
-                                          date1,
+                                          start_date,
                                           start_time,
                                           end_time,
                                           is_preferred)
-                VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (event_id, user_id, weekday, date1, start_time, end_time)
-                DO
-                UPDATE SET
-                    is_preferred = EXCLUDED.is_preferred
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 """,
                 event_id,
                 user_id,
                 weekday,
-                date1,
+                start_date,
                 start_time,
                 end_time,
                 is_preferred
@@ -444,7 +460,7 @@ async def find_overlaps(event_id: int, min_people: int):
     async with get_connection() as conn:
         rows = await conn.fetch(
             """
-            SELECT weekday, date1, start_time, end_time, is_preferred
+            SELECT weekday, start_date, start_time, end_time, is_preferred
             FROM availability
             WHERE event_id = $1
             """,
@@ -452,16 +468,16 @@ async def find_overlaps(event_id: int, min_people: int):
         )
 
     events = defaultdict(list)
-    for weekday, date1, start_time, end_time, is_preferred in rows:
+    for weekday, start_date, start_time, end_time, is_preferred in rows:
         start_time = int(start_time)
         end_time = int(end_time)
 
         pref = 1 if is_preferred else 0
-        events[weekday].append((start_time, +1, +pref, date1))
-        events[weekday].append((end_time, -1, -pref, date1))
+        events[weekday].append((start_time, +1, +pref, start_date))
+        events[weekday].append((end_time, -1, -pref, start_date))
 
         print(
-            f"{weekday}: {date1} "
+            f"{weekday}: {start_date} "
             f"{minutes_to_label(start_time)}–{minutes_to_label(end_time)} "
             f"Preferred: {is_preferred}"
         )
@@ -480,7 +496,7 @@ async def find_overlaps(event_id: int, min_people: int):
         count = 0
         pref_count = 0
         for i in range(len(points) - 1):
-            time, delta, pref_delta, date1 = points[i]
+            time, delta, pref_delta, start_date = points[i]
             count += delta  # apply change at boundary
             print(f"Count: {count}")
             pref_count += pref_delta
@@ -488,21 +504,21 @@ async def find_overlaps(event_id: int, min_people: int):
             next_time = points[i + 1][0]
 
             if count >= min_people and time < next_time:
-                results.append((weekday, time, next_time, count, pref_count, date1))
+                results.append((weekday, time, next_time, count, pref_count, start_date))
 
     results.sort(key=lambda r: (r[3], r[4], r[0]), reverse=True)
 
     lines = ["📊 **Best available times**"]
-    count_members = get_count_members(event_id)
+    count_members = await get_count_members(event_id)
     print(count_members)
     threshold = 0.75 * int(count_members)
     min = math.floor(threshold)
     print(f"Minimum {min} people")
 
-    for weekday, start, end, count, pref_count, date1 in results:
+    for weekday, start, end, count, pref_count, start_date in results:
         if count >= min:
             print(
-                f"{weekday}: {date1} | "
+                f"{weekday}: {start_date} | "
                 f"**{minutes_to_label(start)}–{minutes_to_label(end)}** | "
                 f"for **{count}** people and preferred for **{pref_count}** people."
             )
