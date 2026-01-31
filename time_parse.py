@@ -45,11 +45,10 @@ def time_to_label(weekday: int, minutes: int) -> datetime:
     return dt
 
 async def parse_time(time: str) -> datetime:
-    default = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     dt = parse(time)
-    if dt < datetime.now():
+    now_utc = datetime.now(timezone.utc)
+    if dt < now_utc:
         dt += timedelta(days=7)
-    print(dt)
     return dt
 
 async def parse_dur(dt: datetime, dur: str = "0"):

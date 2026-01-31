@@ -53,13 +53,16 @@ async def rsvp(interaction: discord.Interaction,
 
     # TIME PARSING
     start_dt = await parse_time(datetime)
-    formatted_time = discord.utils.format_dt(start_dt.replace(tzinfo=timezone.utc), style='F')
+    start_dt = start_dt.replace(tzinfo = timezone.utc)
+    print(f"Start dt: {start_dt}")
+    formatted_time = discord.utils.format_dt(start_dt, style='F')
     if duration is None:
         end_dt = None
         formatted_end = ""
     else:
         end_dt = await parse_dur(start_dt, duration)
-        formatted_end = discord.utils.format_dt(end_dt.replace(tzinfo=timezone.utc), style='F')
+        end_dt = end_dt.replace(tzinfo = timezone.utc)
+        formatted_end = discord.utils.format_dt(end_dt, style='F')
 
     # EMBED
     embed = discord.Embed(
