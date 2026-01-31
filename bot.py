@@ -3,7 +3,7 @@ from discord.ext import commands
 from config import TOKEN
 from views.views import ScheduleView, rsvpView
 from time_parse import parse_time, parse_dur
-from datetime import timedelta
+from datetime import timedelta, timezone
 from database import init_db, add_event
 
 intents = discord.Intents.default()
@@ -53,13 +53,13 @@ async def rsvp(interaction: discord.Interaction,
 
     # TIME PARSING
     start_dt = await parse_time(datetime)
-    formatted_time = discord.utils.format_dt(start_dt, style='F')
+    formatted_time = discord.utils.format_dt(start_dt.replace(tzinfo=timezone.utc), style='F')
     if duration is None:
         end_dt = None
         formatted_end = ""
     else:
         end_dt = await parse_dur(start_dt, duration)
-        formatted_end = discord.utils.format_dt(end_dt, style='F')
+        formatted_end = discord.utils.format_dt(end_dt.replace(tzinfo=timezone.utc), style='F')
 
     # EMBED
     embed = discord.Embed(
@@ -135,7 +135,7 @@ async def schedule(interaction: discord.Interaction,
     # PERIOD
     start_date = await parse_time(start)
     print(start_date)
-    start_date_formatted = discord.utils.format_dt(start_date, style='F')
+    start_date_formatted = discord.utils.format_dt(start_date.replace(tzinfo=timezone.utc), style='F')
     if end:
         end_date = await parse_time(end)
     else:
