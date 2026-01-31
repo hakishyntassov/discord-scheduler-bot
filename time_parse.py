@@ -46,6 +46,8 @@ def time_to_label(weekday: int, minutes: int) -> datetime:
 
 async def parse_time(time: str) -> datetime:
     dt = parse(time)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
     now_utc = datetime.now(timezone.utc)
     if dt < now_utc:
         dt += timedelta(days=7)
