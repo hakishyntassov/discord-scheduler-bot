@@ -1,8 +1,12 @@
 import os
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-DATABASE_URL = os.getenv("DATABASE_URL")
-DATABASE_PUBLIC_URL = os.getenv("DATABASE_PUBLIC_URL")
+MYSQL_PUBLIC_URL = os.getenv("MYSQL_PUBLIC_URL")
+MYSQL_HOST = os.getenv("MYSQLHOST")
+MYSQL_PORT = int(os.getenv("MYSQLPORT"))
+MYSQL_USER = os.getenv("MYSQLUSER")
+MYSQL_PASSWORD = os.getenv("MYSQLPASSWORD")
+MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
 
 DAY_NAMES = [
     "Monday",

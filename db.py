@@ -4,12 +4,26 @@ import re
 from collections import defaultdict
 from contextlib import contextmanager
 from time_parse import to_minutes, minutes_to_label
+import mysql.connector
+from config import MYSQL_PUBLIC_URL, MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 
 DB_PATH = "events.db"
 
 async def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = mysql.connector.connect(
+        host=MYSQL_HOST,
+        port=MYSQL_PORT,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        database=MYSQL_DATABASE,
+    )
+
     cursor = conn.cursor()
+    cursor.execute("SELECT 1")
+    print(cursor.fetchone())
+    #
+    # conn = sqlite3.connect(DB_PATH)
+    # cursor = conn.cursor()
 
     # events table
     cursor.execute(
