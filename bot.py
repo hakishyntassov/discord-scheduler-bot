@@ -52,7 +52,8 @@ async def rsvp(interaction: discord.Interaction,
     print(f"Participants ({len(participants)}): {[m.id for m in participants]}")
 
     # TIME PARSING
-    start_dt = await parse_time(time)
+    start_base = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    start_dt = await parse_time(time, start_base)
     print(f"Start dt: {start_dt}")
     formatted_time = discord.utils.format_dt(start_dt, style='F')
     print(f"Formatted: {formatted_time}!")
@@ -135,13 +136,13 @@ async def schedule(interaction: discord.Interaction,
                    location: str | None = None):
     await interaction.response.defer()
     # PERIOD
-    start_base = datetime(2026, 1, 31, 0, 0, 0)
+    start_base = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     start_date = await parse_time(start, start_base)
     print(f"Start dt: {start_date}")
     formatted_time = discord.utils.format_dt(start_date, style='F')
     print(f"Formatted: {formatted_time}!")
     if end:
-        end_base = datetime(2026, 2, 6, 23, 59, 59)
+        end_base = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
         end_date = await parse_time(end, end_base)
     else:
         end_date = start_date + timedelta(days=6, hours=23, minutes=59, seconds=59)
