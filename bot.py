@@ -56,6 +56,7 @@ async def rsvp(interaction: discord.Interaction,
     start_dt = start_dt.replace(tzinfo = timezone.utc)
     print(f"Start dt: {start_dt}")
     formatted_time = discord.utils.format_dt(start_dt, style='F')
+    print(f"Formatted: {formatted_time}")
     if duration is None:
         end_dt = None
         formatted_end = ""

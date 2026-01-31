@@ -22,9 +22,9 @@ async def init_db():
             guild_id       BIGINT NOT NULL,
             message_id     BIGINT NOT NULL,
             count_members  INTEGER NOT NULL,
-            start_timep    TIMESTAMP NOT NULL,
-            end_timep      TIMESTAMP,
-            created_at     TIMESTAMP DEFAULT NOW()
+            start_timep    TIMESTAMPTZ NOT NULL,
+            end_timep      TIMESTAMPTZ,
+            created_at     TIMESTAMPTZ DEFAULT NOW()
         );
         """)
 
