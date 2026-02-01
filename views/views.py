@@ -282,6 +282,11 @@ class AvailabilityView(discord.ui.View):
                 #end_dt = results[0][5] + timedelta(minutes=results[0][2])
                 #start_dt = await parse_time_wd(results[0][0], results[0][1], user_tz="America/New_York")
                 #end_dt = await parse_time_wd(results[0][0], results[0][2], user_tz="America/New_York")
+                print(f"Date: {results[0][5]}")
+                print(f"Start: {results[0][1]}")
+                print(f"End: {results[0][2]}")
+                start = results[0][5] + timedelta(minutes=results[0][1])
+                end = results[0][5] + timedelta(minutes=results[0][2])
                 if results[0][3] == count_members:
                     joins = await get_joins(self.event_id)
                     names = []
@@ -294,7 +299,7 @@ class AvailabilityView(discord.ui.View):
                     )
                     embed.add_field(
                         name="**Time**",
-                        value=f"> {DAY_NAMES[results[0][0]-1]} : {minutes_to_label(results[0][1])}-{minutes_to_label(results[0][2])}",
+                        value=f"> From: {discord.utils.format_dt(start, 'F')}\n> To: {discord.utils.format_dt(end, 'F')}",
                         inline=False
                     )
                     embed.add_field(
