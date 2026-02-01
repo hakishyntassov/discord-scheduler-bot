@@ -220,7 +220,7 @@ class ScheduleView(discord.ui.View):
                 )
 
             table = "```text\n" + "\n".join(lines) + "\n```"
-            await interaction.followup.send(table)
+            await interaction.followup.send(table, ephemeral=True)
 
 class AvailabilityView(discord.ui.View):
     def __init__(self, title: str, event_id: int, user_id: int, start_date: datetime, end_date: datetime, day_id: int):
