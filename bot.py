@@ -224,7 +224,7 @@ async def schedule(interaction: discord.Interaction,
         end_timep=end_date
     )
     # BUTTONS
-    view = ScheduleView(title=title, event_id=event_id, channel_id=channel.id, participants=participants)
+    view = ScheduleView(title=title, event_id=event_id, channel_id=channel.id, participants=participants, location=location)
     await message.edit(embed=embed, view=view)
     print(f'Created event: {title}')
 

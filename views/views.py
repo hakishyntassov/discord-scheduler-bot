@@ -86,12 +86,13 @@ class rsvpView(discord.ui.View):
         await interaction.message.edit(embed=embed)
 
 class ScheduleView(discord.ui.View):
-    def __init__(self, title: str, event_id: id, channel_id: id, participants: list):
+    def __init__(self, title: str, event_id: int, channel_id: int, participants, location: str):
         super().__init__(timeout=None)
         self.title = title
         self.event_id = event_id
         self.channel_id = channel_id
         self.participants = participants
+        self.location = location
 
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success, row=0)
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -142,7 +143,8 @@ class ScheduleView(discord.ui.View):
                             user_id=user.id,
                             start_date=start_date_strp,
                             end_date=end_date_strp,
-                            day_id=start_date_strp.weekday()
+                            day_id=start_date_strp.weekday(),
+                            location=self.location
                         )
                     )
                     # optional confirmaon (ephemeral)
@@ -223,7 +225,7 @@ class ScheduleView(discord.ui.View):
             await interaction.followup.send(table, ephemeral=True)
 
 class AvailabilityView(discord.ui.View):
-    def __init__(self, title: str, event_id: int, user_id: int, start_date: datetime, end_date: datetime, day_id: int):
+    def __init__(self, title: str, event_id: int, user_id: int, start_date: datetime, end_date: datetime, day_id: int, location: str):
         super().__init__(timeout=None)
         self.title = title
         self.event_id = event_id
@@ -231,6 +233,7 @@ class AvailabilityView(discord.ui.View):
         self.start_date = start_date
         self.end_date = end_date
         self.day_id = day_id
+        self.location = location
 
     async def cycle(self, interaction: discord.Interaction):
         if self.day_id == 6:
@@ -242,7 +245,7 @@ class AvailabilityView(discord.ui.View):
         if next_day <= self.end_date:
             await interaction.followup.send(
                 f"> Let’s set your availability for **{next_day_formatted}**",
-                view=AvailabilityView(self.title, self.event_id, self.user_id, next_day, self.end_date, next_day_id)
+                view=AvailabilityView(self.title, self.event_id, self.user_id, next_day, self.end_date, next_day_id, self.location)
             )
         else:
             await submit_availability(event_id=self.event_id, user_id=self.user_id)
@@ -307,7 +310,7 @@ class AvailabilityView(discord.ui.View):
                         value="\n".join(names),
                         inline=False
                     )
-                    view = ResultsView(self.title, results)
+                    view = ResultsView(self.title, start, end, self.location)
                     await channel.send(embed=embed,view=view)
                     await message.delete()
                 else:
@@ -343,7 +346,8 @@ class AvailabilityView(discord.ui.View):
                 start_date=self.start_date,
                 end_date=self.end_date,
                 day_id=self.day_id,
-                is_preferred=False
+                is_preferred=False,
+                location=self.location
             )
         )
 
@@ -357,7 +361,8 @@ class AvailabilityView(discord.ui.View):
                 start_date=self.start_date,
                 end_date=self.end_date,
                 day_id=self.day_id,
-                is_preferred=True
+                is_preferred=True,
+                location=self.location
             )
         )
 
@@ -388,7 +393,7 @@ class AvailabilityView(discord.ui.View):
         await self.cycle(interaction)
 
 class AvailabilityModal(discord.ui.Modal):
-    def __init__(self, title: str, event_id: int, user_id: int, start_date: datetime, end_date: datetime, day_id: int, is_preferred: bool):
+    def __init__(self, title: str, event_id: int, user_id: int, start_date: datetime, end_date: datetime, day_id: int, is_preferred: bool, location: str):
         super().__init__(title=f"{DAY_NAMES[day_id]} Availability")
         self.title = title
         self.event_id = event_id
@@ -397,6 +402,7 @@ class AvailabilityModal(discord.ui.Modal):
         self.end_date = end_date
         self.day_id = day_id
         self.is_preferred = is_preferred
+        self.location = location
 
         self.times = discord.ui.TextInput(
             label="Enter your available times",
@@ -423,25 +429,25 @@ class AvailabilityModal(discord.ui.Modal):
         except discord.NotFound:
             pass
 
-        await AvailabilityView(self.title, self.event_id, self.user_id, self.start_date, self.end_date, self.day_id).cycle(interaction)
+        await AvailabilityView(self.title, self.event_id, self.user_id, self.start_date, self.end_date, self.day_id, self.location).cycle(interaction)
 
 class ResultsView(discord.ui.View):
-    def __init__(self, title: str, results: list):
+    def __init__(self, title: str, start: datetime, end: datetime, location: str):
         super().__init__(timeout=None)
         self.title = title
-        self.results = results
+        self.start = start
+        self.end = end
+        self.location = location
 
     @discord.ui.button(label="Add event", style=discord.ButtonStyle.primary, row=0)
     async def event_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-        start_dt = await parse_time_wd(self.results[0][0], self.results[0][1], user_tz="America/New_York")
-        end_dt = await parse_time_wd(self.results[0][0], self.results[0][2], user_tz="America/New_York")
         await interaction.guild.create_scheduled_event(
             name=f"{self.title}",
-            start_time=self.start_dt,
-            end_time=self.end_dt,
+            start_time=self.start,
+            end_time=self.end,
             privacy_level=discord.PrivacyLevel.guild_only,
             entity_type=discord.EntityType.external,
-            location="location"
+            location=self.location
         )
-        await interaction.followup.send("> I added this event - check the events tab!")
+        await interaction.followup.send("> I added this event - check the events tab!", ephemeral=True)
