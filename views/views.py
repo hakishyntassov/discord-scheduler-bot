@@ -211,7 +211,7 @@ class ScheduleView(discord.ui.View):
             divider = "-" * len(header)
 
             lines = [header, divider]
-
+            shown = 0
             for r in rows:
                 lines.append(
                     f"{r['day']:<{col_widths['day']}}  "
@@ -220,6 +220,9 @@ class ScheduleView(discord.ui.View):
                     f"{r['people']:<{col_widths['people']}}  "
                     f"{r['preferred']:<{col_widths['preferred']}}"
                 )
+                shown += 1
+                if shown == 4:
+                    break
 
             table = "```text\n" + "\n".join(lines) + "\n```"
             await interaction.followup.send(table, ephemeral=True)
@@ -325,10 +328,10 @@ class AvailabilityView(discord.ui.View):
                                 continue
                             start_formatted = sd.strftime("%A (%d/%m/%y)")
                             count_word = "people" if count != 1 else "person"
-                            time_option = f"{start_formatted}: {minutes_to_label(start)}-{minutes_to_label(end)} | {count} {count_word}"
+                            time_option = f"{DAY_NAMES[weekday-1]}: {minutes_to_label(start)}-{minutes_to_label(end)} | {count} {count_word}"
                             poll_obj.add_answer(text=time_option)
                             shown += 1
-                            if shown == 3:
+                            if shown == 4:
                                 break
                         await channel.send(poll=poll_obj)
                     except discord.Forbidden:
