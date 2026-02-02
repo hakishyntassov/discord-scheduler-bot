@@ -221,7 +221,7 @@ class ScheduleView(discord.ui.View):
                     f"{r['preferred']:<{col_widths['preferred']}}"
                 )
                 shown += 1
-                if shown == 4:
+                if shown == 5:
                     break
 
             table = "```text\n" + "\n".join(lines) + "\n```"
@@ -331,7 +331,7 @@ class AvailabilityView(discord.ui.View):
                             time_option = f"{DAY_NAMES[weekday-1]}: {minutes_to_label(start)}-{minutes_to_label(end)} | {count} {count_word}"
                             poll_obj.add_answer(text=time_option)
                             shown += 1
-                            if shown == 4:
+                            if shown == 5:
                                 break
                         await channel.send(poll=poll_obj)
                     except discord.Forbidden:
