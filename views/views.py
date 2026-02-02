@@ -324,11 +324,9 @@ class AvailabilityView(discord.ui.View):
                         )
                         shown = 0
                         for weekday, start, end, count, pref_count, sd in results:
-                            if count >= min_people:
-                                continue
-                            start_formatted = sd.strftime("%A (%d/%m/%y)")
+                            start_formatted = sd.strftime("%A %m/%d/%y")
                             count_word = "people" if count != 1 else "person"
-                            time_option = f"{DAY_NAMES[weekday-1]}: {minutes_to_label(start)}-{minutes_to_label(end)} | {count} {count_word}"
+                            time_option = f"{start_formatted} | {minutes_to_label(start)}-{minutes_to_label(end)} | {count} {count_word}"
                             poll_obj.add_answer(text=time_option)
                             shown += 1
                             if shown == 5:
