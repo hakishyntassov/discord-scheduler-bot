@@ -121,6 +121,10 @@ class ScheduleView(discord.ui.View):
                         value="\n".join(names) if names else "-",
                         inline=False
                     )
+                    if len(joins) >= len(self.participants):
+                        self.join_button.disabled = True
+                        self.join_button.label = "Everyone joined"
+                        self.join_button.style = discord.ButtonStyle.secondary
                     await interaction.message.edit(embed=embed, view=self)
 
                     dm = await user.create_dm()
@@ -179,53 +183,29 @@ class ScheduleView(discord.ui.View):
             )
             return
         else:
-            rows = []
-
-            for weekday, start, end, count, pref_count, sd in results:
-                #date = datetime.strptime(sd, "%Y-%m-%d %H:%M:%S")
-                date_formatted = sd.strftime("%B %d, %Y")
-                rows.append({
-                    "day": DAY_NAMES[weekday - 1],
-                    "date": date_formatted,
-                    "time": f"{minutes_to_label(start)}–{minutes_to_label(end)}",
-                    "people": str(count),
-                    "preferred": str(pref_count),
-                })
-
-            col_widths = {
-                "day": max(len("Day"), max(len(r["day"]) for r in rows)),
-                "date": max(len("Date"), max(len(r["date"]) for r in rows)),
-                "time": max(len("Time"), max(len(r["time"]) for r in rows)),
-                "people": max(len("People"), max(len(r["people"]) for r in rows)),
-                "preferred": max(len("Preferred"), max(len(r["preferred"]) for r in rows)),
-            }
-
-            header = (
-                f"{'Day':<{col_widths['day']}}  "
-                f"{'Date':<{col_widths['date']}}  "
-                f"{'Time':<{col_widths['time']}}  "
-                f"{'People':<{col_widths['people']}}  "
-                f"{'Preferred':<{col_widths['preferred']}}"
+            embed = discord.Embed(
+                title="Top Availability",
+                color=discord.Color.blurple()
             )
 
-            divider = "-" * len(header)
-
-            lines = [header, divider]
             shown = 0
-            for r in rows:
-                lines.append(
-                    f"{r['day']:<{col_widths['day']}}  "
-                    f"{r['date']:<{col_widths['date']}}  "
-                    f"{r['time']:<{col_widths['time']}}  "
-                    f"{r['people']:<{col_widths['people']}}  "
-                    f"{r['preferred']:<{col_widths['preferred']}}"
+            for weekday, start, end, count, pref_count, sd in results:
+                date_formatted = sd.strftime("%a %m/%d/%y")
+                count_word = "person" if count == 1 else "people"
+                pref_word = "person" if pref_count == 1 else "people"
+                embed.add_field(
+                    name=f"{date_formatted}",
+                    value=(
+                        f"> {minutes_to_label(start)}–{minutes_to_label(end)}\n"
+                        f"> ✅ {count} {count_word} available · ⭐ {pref_count} {pref_word} preferred"
+                    ),
+                    inline=False
                 )
                 shown += 1
                 if shown == 5:
                     break
 
-            table = "```text\n" + "\n".join(lines) + "\n```"
-            await interaction.followup.send(table, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 class AvailabilityView(discord.ui.View):
     def __init__(self, title: str, event_id: int, user_id: int, start_date: datetime, end_date: datetime, day_id: int, location: str):
@@ -257,8 +237,8 @@ class AvailabilityView(discord.ui.View):
             channel = interaction.client.get_channel(channel_message[0][0])
             message = await channel.fetch_message(channel_message[0][1])
             embed = message.embeds[0]
-            if embed.fields[1].value not in ("-", "", None, "> Not specified"):
-                updated_value = embed.fields[1].value + f"\n> <@{self.user_id}>"
+            if embed.fields[4].value not in ("-", "", None, "> Not specified"):
+                updated_value = embed.fields[4].value + f"\n> <@{self.user_id}>"
             else:
                 updated_value = f"> <@{self.user_id}>"
             print(embed.fields[1].value)
@@ -315,7 +295,7 @@ class AvailabilityView(discord.ui.View):
                     )
                     view = ResultsView(self.title, start, end, self.location)
                     await channel.send(embed=embed,view=view)
-                    await message.delete()
+                    #await message.delete()
                 else:
                     try:
                         poll_obj = discord.Poll(
@@ -324,9 +304,9 @@ class AvailabilityView(discord.ui.View):
                         )
                         shown = 0
                         for weekday, start, end, count, pref_count, sd in results:
-                            start_formatted = sd.strftime("%A %m/%d/%y")
-                            count_word = "people" if count != 1 else "person"
-                            time_option = f"{start_formatted} | {minutes_to_label(start)}-{minutes_to_label(end)} | {count} {count_word}"
+                            start_formatted = sd.strftime("%a %m/%d/%y")
+                            count_word = "person" if count == 1 else "people"
+                            time_option = f"{start_formatted} · {minutes_to_label(start)}-{minutes_to_label(end)} · {count} {count_word} · {pref_count} pref."
                             poll_obj.add_answer(text=time_option)
                             shown += 1
                             if shown == 5:
@@ -451,4 +431,8 @@ class ResultsView(discord.ui.View):
             entity_type=discord.EntityType.external,
             location=self.location
         )
+        button.disabled = True
+        button.label = "Event added"
+        button.style = discord.ButtonStyle.secondary
+        await interaction.message.edit(view=self)
         await interaction.followup.send("> I added this event - check the events tab!", ephemeral=True)
