@@ -1,10 +1,17 @@
-import re, discord
+import re, discord, logging
 from discord.ext import commands
 from config import TOKEN
 from views.views import ScheduleView, rsvpView
 from time_parse import parse_time, parse_dur
 from datetime import timedelta, timezone, datetime
 from database import init_db, add_event
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)-8s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 intents = discord.Intents.default()
 intents.members = True
@@ -15,10 +22,10 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 @bot.event
 async def on_ready():
     await init_db()
-    print("Database initialized")
+    logger.info("Database initialized")
     await bot.tree.sync()
-    print("Application ID:", bot.application_id)
-    print(f'Logged in as {bot.user}')
+    logger.info("Application ID: %s", bot.application_id)
+    logger.info("Logged in as %s", bot.user)
 
 @bot.event
 async def on_message(message):
@@ -49,14 +56,14 @@ async def rsvp(interaction: discord.Interaction,
     if (role is None) and (users is None):
         participants.update(m for m in channel.members if not m.bot)
 
-    print(f"Participants ({len(participants)}): {[m.id for m in participants]}")
+    logger.debug("rsvp participants (%d): %s", len(participants), [m.id for m in participants])
 
     # TIME PARSING
     start_base = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     start_dt = await parse_time(time, start_base)
-    print(f"Start dt: {start_dt}")
+    logger.debug("rsvp start_dt: %s", start_dt)
     formatted_time = discord.utils.format_dt(start_dt, style='F')
-    print(f"Formatted: {formatted_time}!")
+    logger.debug("rsvp formatted_time: %s", formatted_time)
     if duration is None:
         end_dt = None
         formatted_end = ""
@@ -138,9 +145,8 @@ async def schedule(interaction: discord.Interaction,
     # PERIOD
     start_base = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     start_date = await parse_time(start, start_base)
-    print(f"Start dt: {start_date}")
+    logger.debug("schedule start_date: %s", start_date)
     formatted_time = discord.utils.format_dt(start_date, style='F')
-    print(f"Formatted: {formatted_time}!")
     if end:
         end_base = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
         end_date = await parse_time(end, end_base)
@@ -148,9 +154,8 @@ async def schedule(interaction: discord.Interaction,
         end_date = start_date + timedelta(days=6, hours=23, minutes=59, seconds=59)
     if start_date > end_date:
         end_date = end_date + timedelta(days=7)
-    print(f"End dt: {end_date}")
+    logger.debug("schedule end_date: %s", end_date)
     end_date_formatted = discord.utils.format_dt(end_date, style='F')
-    print(f"End formatted: {end_date_formatted}")
     # PARTICIPANTS
     channel = interaction.channel
     participants = set()
@@ -226,6 +231,6 @@ async def schedule(interaction: discord.Interaction,
     # BUTTONS
     view = ScheduleView(title=title, event_id=event_id, channel_id=channel.id, participants=participants, location=location)
     await message.edit(embed=embed, view=view)
-    print(f'Created event: {title}')
+    logger.info("Created schedule event '%s' (id=%s) in guild %s", title, event_id, interaction.guild.id)
 
 bot.run(TOKEN) # RUN THE BOT

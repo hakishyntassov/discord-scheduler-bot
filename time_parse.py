@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from dateparser import parse
 from zoneinfo import ZoneInfo
 from durations_nlp import Duration
+
+logger = logging.getLogger(__name__)
 
 NY_TZ = ZoneInfo("America/New_York")
 
@@ -48,7 +51,7 @@ def time_to_label(weekday: int, minutes: int) -> datetime:
 
 async def parse_time(time: str, base: datetime) -> datetime:
     dt = parse(time, settings={'RELATIVE_BASE': base})
-    print(f"dt: {dt}")
+    logger.debug("parse_time input=%r → %s", time, dt)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=NY_TZ)
     dt = dt.astimezone(timezone.utc)
@@ -61,7 +64,7 @@ async def parse_dur(dt: datetime, dur: str = "0"):
     duration = Duration(dur)
     duration_minutes = duration.to_minutes()
     dt += timedelta(minutes=duration_minutes)
-    print(dt)
+    logger.debug("parse_dur result: %s", dt)
     return dt
 
 async def parse_time_wd(weekday: int, minutes: int, user_tz: str) -> datetime:

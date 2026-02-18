@@ -1,10 +1,13 @@
 import math
+import logging
 from datetime import timedelta, datetime, timezone
 import discord
 from database import add_join, user_in_event, save_availability, find_overlaps, submit_availability, \
     get_count_submits, get_count_members, get_joins, set_rsvp, get_rsvp_users, get_times, get_channel_message
 from time_parse import to_minutes, minutes_to_label, time_to_label, parse_time_wd, get_next_day
 from config import DAY_NAMES
+
+logger = logging.getLogger(__name__)
 
 class rsvpView(discord.ui.View):
     def __init__(self, title, event_id, participants):
@@ -233,7 +236,7 @@ class AvailabilityView(discord.ui.View):
         else:
             await submit_availability(event_id=self.event_id, user_id=self.user_id)
             channel_message = await get_channel_message(self.event_id)
-            print(f"Channel: {channel_message[0][0]}, Message: {channel_message[0][1]}")
+            logger.debug("submit — channel_id=%s message_id=%s", channel_message[0][0], channel_message[0][1])
             channel = interaction.client.get_channel(channel_message[0][0])
             message = await channel.fetch_message(channel_message[0][1])
             embed = message.embeds[0]
@@ -241,8 +244,6 @@ class AvailabilityView(discord.ui.View):
                 updated_value = embed.fields[4].value + f"\n> <@{self.user_id}>"
             else:
                 updated_value = f"> <@{self.user_id}>"
-            print(embed.fields[1].value)
-            print(updated_value)
             embed.set_field_at(
                 4,
                 name="☑️ Submitted",
@@ -263,14 +264,10 @@ class AvailabilityView(discord.ui.View):
             min_people = math.floor(threshold)
             results = await find_overlaps(self.event_id, min_people)
             if count_submits == count_members:
-                print(f"Date: {results[0][5]}")
-                #start_dt = results[0][5] + timedelta(minutes=results[0][1])
-                #end_dt = results[0][5] + timedelta(minutes=results[0][2])
-                #start_dt = await parse_time_wd(results[0][0], results[0][1], user_tz="America/New_York")
-                #end_dt = await parse_time_wd(results[0][0], results[0][2], user_tz="America/New_York")
-                print(f"Date: {results[0][5]}")
-                print(f"Start: {results[0][1]}")
-                print(f"End: {results[0][2]}")
+                logger.debug(
+                    "all submitted — top result date=%s start=%s end=%s",
+                    results[0][5], results[0][1], results[0][2]
+                )
                 start = results[0][5] + timedelta(minutes=results[0][1])
                 end = results[0][5] + timedelta(minutes=results[0][2])
                 if results[0][3] == count_members:

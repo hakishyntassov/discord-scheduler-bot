@@ -1,11 +1,14 @@
 import math
 import re
+import logging
 from collections import defaultdict
 from datetime import datetime
 import asyncpg
 from contextlib import asynccontextmanager
 from config import DATABASE_PUBLIC_URL
 from time_parse import to_minutes, minutes_to_label
+
+logger = logging.getLogger(__name__)
 
 pool: asyncpg.Pool | None = None
 
@@ -75,7 +78,12 @@ async def init_db():
         ALTER COLUMN start_date TYPE TIMESTAMPTZ;
         """)
 
-    print("Postgres schema initialized")
+        await conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_availability_event_id
+        ON availability(event_id);
+        """)
+
+    logger.info("Postgres schema initialized")
 
 @asynccontextmanager
 async def get_connection():
@@ -484,31 +492,24 @@ async def find_overlaps(event_id: int, min_people: int):
         events[weekday].append((start_time, +1, +pref, start_date))
         events[weekday].append((end_time, -1, -pref, start_date))
 
-        print(
-            f"{weekday}: {start_date} "
-            f"{minutes_to_label(start_time)}–{minutes_to_label(end_time)} "
-            f"Preferred: {is_preferred}"
-        )
-
-    for weekday, points in events.items():
-        print(
-            f"{weekday}: "
-            f"{points}"
+        logger.debug(
+            "availability row — weekday=%s date=%s %s–%s preferred=%s",
+            weekday, start_date,
+            minutes_to_label(start_time), minutes_to_label(end_time),
+            is_preferred
         )
 
     results = []
 
     for weekday, points in events.items():
         points.sort(key=lambda x: (x[0], x[1]))
-        print(points)
+        logger.debug("sweep points weekday=%s: %s", weekday, points)
         count = 0
         pref_count = 0
         for i in range(len(points) - 1):
             time, delta, pref_delta, start_date = points[i]
             count += delta  # apply change at boundary
-            print(f"Count: {count}")
             pref_count += pref_delta
-            print(f"Pref count: {pref_count}")
             next_time = points[i + 1][0]
 
             if count >= min_people and time < next_time:
@@ -516,18 +517,17 @@ async def find_overlaps(event_id: int, min_people: int):
 
     results.sort(key=lambda r: (r[3], r[4], r[0]), reverse=True)
 
-    lines = ["📊 **Best available times**"]
     count_members = await get_count_members(event_id)
-    print(count_members)
     threshold = 0.75 * int(count_members)
-    min = math.floor(threshold)
-    print(f"Minimum {min} people")
+    min_threshold = math.floor(threshold)
+    logger.debug("find_overlaps event_id=%s count_members=%s min_threshold=%s", event_id, count_members, min_threshold)
 
     for weekday, start, end, count, pref_count, start_date in results:
-        if count >= min:
-            print(
-                f"{weekday}: {start_date} | "
-                f"**{minutes_to_label(start)}–{minutes_to_label(end)}** | "
-                f"for **{count}** people and preferred for **{pref_count}** people."
+        if count >= min_threshold:
+            logger.debug(
+                "overlap — weekday=%s date=%s %s–%s people=%s preferred=%s",
+                weekday, start_date,
+                minutes_to_label(start), minutes_to_label(end),
+                count, pref_count
             )
     return results
