@@ -11,7 +11,7 @@ pool: asyncpg.Pool | None = None
 
 async def init_db():
     global pool
-    pool = await asyncpg.create_pool(DATABASE_PUBLIC_URL, min_size=1, max_size=5)
+    pool = await asyncpg.create_pool(DATABASE_PUBLIC_URL, min_size=1, max_size=20)
 
     async with pool.acquire() as conn:
         await conn.execute("""
