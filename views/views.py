@@ -1,4 +1,5 @@
 import math
+import time
 import logging
 from datetime import timedelta, datetime, timezone
 import discord
@@ -9,7 +10,30 @@ from config import DAY_NAMES
 
 logger = logging.getLogger(__name__)
 
+
+class CooldownManager:
+    """Per-user rate limiter using monotonic time."""
+
+    def __init__(self, seconds: float):
+        self._cooldown = seconds
+        self._last_used: dict[int, float] = {}
+
+    def check(self, user_id: int) -> float:
+        """
+        Record a use for user_id and return the remaining cooldown in seconds.
+        Returns 0.0 if the action is allowed; a positive float if still on cooldown.
+        """
+        now = time.monotonic()
+        remaining = self._cooldown - (now - self._last_used.get(user_id, 0.0))
+        if remaining > 0:
+            return remaining
+        self._last_used[user_id] = now
+        return 0.0
+
+
 class rsvpView(discord.ui.View):
+    _cooldown = CooldownManager(3.0)
+
     def __init__(self, title, event_id, participants):
         super().__init__(timeout=None)
         self.title = title
@@ -41,6 +65,14 @@ class rsvpView(discord.ui.View):
             await interaction.followup.send("> You can't RSVP to this event", ephemeral=True)
 
     async def set_user(self, interaction, new_status: int):
+        remaining = self._cooldown.check(interaction.user.id)
+        if remaining:
+            await interaction.followup.send(
+                f"> You're clicking too fast. Try again in **{remaining:.1f}s**.",
+                ephemeral=True
+            )
+            return
+
         if not await set_rsvp(self.event_id, interaction.user.id, new_status):
             await interaction.followup.send(
                 "> You already RSVP'd to this event",
@@ -89,6 +121,9 @@ class rsvpView(discord.ui.View):
         await interaction.message.edit(embed=embed)
 
 class ScheduleView(discord.ui.View):
+    _join_cooldown = CooldownManager(5.0)
+    _results_cooldown = CooldownManager(10.0)
+
     def __init__(self, title: str, event_id: int, channel_id: int, participants, location: str):
         super().__init__(timeout=None)
         self.title = title
@@ -100,6 +135,13 @@ class ScheduleView(discord.ui.View):
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success, row=0)
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)  # no visible reply
+        remaining = self._join_cooldown.check(interaction.user.id)
+        if remaining:
+            await interaction.followup.send(
+                f"> You're clicking too fast. Try again in **{remaining:.1f}s**.",
+                ephemeral=True
+            )
+            return
         user = interaction.user
         if user in self.participants:
             # prevent double-join
@@ -174,8 +216,14 @@ class ScheduleView(discord.ui.View):
 
     @discord.ui.button(label="Results", style=discord.ButtonStyle.danger, row=0)
     async def results_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user = interaction.user
         await interaction.response.defer(ephemeral=True)
+        remaining = self._results_cooldown.check(interaction.user.id)
+        if remaining:
+            await interaction.followup.send(
+                f"> You're clicking too fast. Try again in **{remaining:.1f}s**.",
+                ephemeral=True
+            )
+            return
 
         results = await find_overlaps(self.event_id, 1)
 
@@ -211,6 +259,8 @@ class ScheduleView(discord.ui.View):
             await interaction.followup.send(embed=embed, ephemeral=True)
 
 class AvailabilityView(discord.ui.View):
+    _cooldown = CooldownManager(3.0)
+
     def __init__(self, title: str, event_id: int, user_id: int, start_date: datetime, end_date: datetime, day_id: int, location: str):
         super().__init__(timeout=None)
         self.title = title
@@ -316,6 +366,13 @@ class AvailabilityView(discord.ui.View):
 
     @discord.ui.button(label="✅ Available", style=discord.ButtonStyle.primary, row=0)
     async def fill_times_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        remaining = self._cooldown.check(interaction.user.id)
+        if remaining:
+            await interaction.response.send_message(
+                f"> You're clicking too fast. Try again in **{remaining:.1f}s**.",
+                ephemeral=True
+            )
+            return
         await interaction.response.send_modal(
             AvailabilityModal(
                 title=self.title,
@@ -331,6 +388,13 @@ class AvailabilityView(discord.ui.View):
 
     @discord.ui.button(label="⭐ Preferred", style=discord.ButtonStyle.success, row=0)
     async def preferred(self, interaction: discord.Interaction, button: discord.ui.Button):
+        remaining = self._cooldown.check(interaction.user.id)
+        if remaining:
+            await interaction.response.send_message(
+                f"> You're clicking too fast. Try again in **{remaining:.1f}s**.",
+                ephemeral=True
+            )
+            return
         await interaction.response.send_modal(
             AvailabilityModal(
                 title=self.title,
@@ -346,6 +410,13 @@ class AvailabilityView(discord.ui.View):
 
     @discord.ui.button(label="🚫 Unavailable", style=discord.ButtonStyle.secondary, row=0)
     async def unavailable(self, interaction: discord.Interaction, button):
+        remaining = self._cooldown.check(interaction.user.id)
+        if remaining:
+            await interaction.response.send_message(
+                f"> You're clicking too fast. Try again in **{remaining:.1f}s**.",
+                ephemeral=True
+            )
+            return
         await interaction.response.defer()
         try:
             await interaction.message.delete()
@@ -355,6 +426,13 @@ class AvailabilityView(discord.ui.View):
 
     @discord.ui.button(label="♾️All Day", style=discord.ButtonStyle.secondary, row=0)
     async def always(self, interaction: discord.Interaction, button):
+        remaining = self._cooldown.check(interaction.user.id)
+        if remaining:
+            await interaction.response.send_message(
+                f"> You're clicking too fast. Try again in **{remaining:.1f}s**.",
+                ephemeral=True
+            )
+            return
         await interaction.response.defer()
         await save_availability(
             event_id=self.event_id,

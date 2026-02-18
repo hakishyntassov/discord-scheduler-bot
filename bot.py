@@ -32,7 +32,20 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    if isinstance(error, discord.app_commands.CommandOnCooldown):
+        await interaction.response.send_message(
+            f"> You're doing that too fast. Try again in **{error.retry_after:.1f}s**.",
+            ephemeral=True
+        )
+    else:
+        logger.error("Unhandled app command error: %s", error, exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("> Something went wrong.", ephemeral=True)
+
 @bot.tree.command(name="rsvp", description="RSVP")
+@discord.app_commands.checks.cooldown(1, 30.0, key=lambda i: i.user.id)
 async def rsvp(interaction: discord.Interaction,
                title: str,
                time: str,
@@ -133,6 +146,7 @@ async def rsvp(interaction: discord.Interaction,
     await message.edit(embed=embed, view=view)
 
 @bot.tree.command(name="schedule", description="Schedule an event")
+@discord.app_commands.checks.cooldown(1, 30.0, key=lambda i: i.user.id)
 async def schedule(interaction: discord.Interaction,
                    title: str,
                    start: str,
