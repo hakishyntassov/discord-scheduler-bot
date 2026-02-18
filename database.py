@@ -192,6 +192,7 @@ async def get_joins(event_id) -> list[int]:
             SELECT user_id
             FROM event_joins
             WHERE event_id = $1
+            LIMIT 500
             """,
             event_id
         )
@@ -227,6 +228,7 @@ async def get_not_submitted(event_id: int) -> list[int]:
             FROM event_joins
             WHERE event_id = $1
               AND submitted = FALSE
+            LIMIT 500
             """,
             event_id
         )
@@ -355,6 +357,7 @@ async def get_rsvp_users(event_id: int):
             SELECT user_id, status
             FROM rsvp
             WHERE event_id = $1
+            LIMIT 500
             """,
             event_id
         )
@@ -391,7 +394,8 @@ async def save_availability(event_id: int, user_id: int, weekday: int, start_dat
         re.IGNORECASE | re.VERBOSE
     )
 
-    matches = list(TIME_RANGE_REGEX.finditer(raw_input))
+    MAX_RANGES_PER_DAY = 10
+    matches = list(TIME_RANGE_REGEX.finditer(raw_input))[:MAX_RANGES_PER_DAY]
     for match in matches:
         start_time = to_minutes(
             match.group("start_hour"),
@@ -472,6 +476,8 @@ async def get_count_submits(event_id: int):
             event_id
         )
 
+MAX_AVAILABILITY_ROWS = 10_000
+
 async def find_overlaps(event_id: int, min_people: int):
     async with get_connection() as conn:
         rows = await conn.fetch(
@@ -479,8 +485,16 @@ async def find_overlaps(event_id: int, min_people: int):
             SELECT weekday, start_date, start_time, end_time, is_preferred
             FROM availability
             WHERE event_id = $1
+            LIMIT $2
             """,
-            event_id
+            event_id,
+            MAX_AVAILABILITY_ROWS
+        )
+
+    if len(rows) == MAX_AVAILABILITY_ROWS:
+        logger.warning(
+            "find_overlaps hit the row cap (%d) for event_id=%s — results may be incomplete",
+            MAX_AVAILABILITY_ROWS, event_id
         )
 
     events = defaultdict(list)
