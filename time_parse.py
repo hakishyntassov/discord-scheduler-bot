@@ -104,3 +104,18 @@ async def parse_time_wd(weekday: int, minutes: int, user_tz: str) -> datetime:
 
 def get_next_day(dt):
     return dt + timedelta(days=1)
+
+async def parse_day(text: str, base: datetime):
+    """
+    Parses a day like 'friday', 'nov 20', 'tomorrow' into a date.
+    Unlike parse_time this doesn't bump 'today' to next week.
+    """
+    settings = {"RELATIVE_BASE": base, "PREFER_DATES_FROM": "future"}
+    dt = parse(text, settings=settings)
+    if dt is None and text.lower().startswith("next "):
+        dt = parse(text[5:], settings=settings)  # dateparser chokes on "next friday"
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(NY_TZ)
+    return dt.date()

@@ -83,6 +83,35 @@ async def init_db():
         ON availability(event_id);
         """)
 
+        # ---- in-channel picker (/schedule) ----
+        await conn.execute("""
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS creator_id       BIGINT;
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS description      TEXT;
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS location         TEXT;
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS day_start_hour   INTEGER;
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS day_end_hour     INTEGER;
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS status           TEXT NOT NULL DEFAULT 'open';
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS final_start      TIMESTAMPTZ;
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS final_end        TIMESTAMPTZ;
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS discord_event_id BIGINT;
+        ALTER TABLE events ADD COLUMN IF NOT EXISTS choice           INTEGER NOT NULL DEFAULT 0;
+
+        CREATE TABLE IF NOT EXISTS event_participants (
+            event_id  BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            user_id   BIGINT NOT NULL,
+            PRIMARY KEY (event_id, user_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS slot_picks (
+            event_id   BIGINT  NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            user_id    BIGINT  NOT NULL,
+            slot_date  DATE    NOT NULL,
+            hour       INTEGER NOT NULL,
+            preferred  BOOLEAN NOT NULL DEFAULT FALSE,
+            PRIMARY KEY (event_id, user_id, slot_date, hour)
+        );
+        """)
+
     logger.info("Postgres schema initialized")
 
 @asynccontextmanager
@@ -545,3 +574,153 @@ async def find_overlaps(event_id: int, min_people: int):
                 count, pref_count
             )
     return results
+
+
+# ======================================================================
+# In-channel picker (/schedule)
+# ======================================================================
+
+async def create_schedule_event(title, channel_id, guild_id, message_id, creator_id,
+                                description, location, start_timep, end_timep,
+                                day_start_hour, day_end_hour, participant_ids) -> int:
+    async with get_connection() as conn:
+        event_id = await conn.fetchval(
+            """
+            INSERT INTO events (title, channel_id, guild_id, message_id, count_members,
+                                start_timep, end_timep, creator_id, description, location,
+                                day_start_hour, day_end_hour, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'open')
+            RETURNING id
+            """,
+            title, channel_id, guild_id, message_id, len(participant_ids),
+            start_timep, end_timep, creator_id, description, location,
+            day_start_hour, day_end_hour
+        )
+        await conn.executemany(
+            "INSERT INTO event_participants (event_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            [(event_id, uid) for uid in participant_ids]
+        )
+        return event_id
+
+
+async def get_event(event_id: int):
+    async with get_connection() as conn:
+        return await conn.fetchrow("SELECT * FROM events WHERE id = $1", event_id)
+
+
+async def get_participants(event_id: int) -> list[int]:
+    async with get_connection() as conn:
+        rows = await conn.fetch(
+            "SELECT user_id FROM event_participants WHERE event_id = $1 ORDER BY user_id",
+            event_id
+        )
+        return [r["user_id"] for r in rows]
+
+
+async def get_responders(event_id: int) -> list[int]:
+    async with get_connection() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT user_id FROM event_joins
+            WHERE event_id = $1 AND submitted = TRUE
+            ORDER BY joined_at
+            """,
+            event_id
+        )
+        return [r["user_id"] for r in rows]
+
+
+async def get_user_picks(event_id: int, user_id: int) -> dict:
+    """-> {(slot_date, hour): preferred}"""
+    async with get_connection() as conn:
+        rows = await conn.fetch(
+            "SELECT slot_date, hour, preferred FROM slot_picks WHERE event_id = $1 AND user_id = $2",
+            event_id, user_id
+        )
+        return {(r["slot_date"], r["hour"]): r["preferred"] for r in rows}
+
+
+async def get_all_picks(event_id: int):
+    async with get_connection() as conn:
+        rows = await conn.fetch(
+            "SELECT user_id, slot_date, hour, preferred FROM slot_picks WHERE event_id = $1",
+            event_id
+        )
+        return [(r["user_id"], r["slot_date"], r["hour"], r["preferred"]) for r in rows]
+
+
+async def save_user_picks(event_id: int, user_id: int, picks: dict) -> bool:
+    """Replaces this user's picks and marks them as responded. False if the event already closed."""
+    async with get_connection() as conn:
+        status = await conn.fetchval("SELECT status FROM events WHERE id = $1 FOR UPDATE", event_id)
+        if status != "open":
+            return False
+        await conn.execute(
+            "DELETE FROM slot_picks WHERE event_id = $1 AND user_id = $2",
+            event_id, user_id
+        )
+        if picks:
+            await conn.executemany(
+                """
+                INSERT INTO slot_picks (event_id, user_id, slot_date, hour, preferred)
+                VALUES ($1, $2, $3, $4, $5)
+                """,
+                [(event_id, user_id, d, h, bool(p)) for (d, h), p in picks.items()]
+            )
+        await conn.execute(
+            """
+            INSERT INTO event_joins (event_id, user_id, submitted)
+            VALUES ($1, $2, TRUE)
+            ON CONFLICT (event_id, user_id) DO UPDATE SET submitted = TRUE
+            """,
+            event_id, user_id
+        )
+        return True
+
+
+async def close_event(event_id: int, final_start, final_end) -> bool:
+    """Flips the event to final. Returns False if someone else already did (avoids double reveals)."""
+    async with get_connection() as conn:
+        changed = await conn.fetchval(
+            """
+            UPDATE events
+            SET status = 'final', final_start = $2, final_end = $3
+            WHERE id = $1 AND status = 'open'
+            RETURNING id
+            """,
+            event_id, final_start, final_end
+        )
+        return changed is not None
+
+
+async def claim_discord_event(event_id: int) -> bool:
+    """Reserve the 'Add event' click so double clicks don't make two Discord events."""
+    async with get_connection() as conn:
+        changed = await conn.fetchval(
+            "UPDATE events SET discord_event_id = 0 WHERE id = $1 AND discord_event_id IS NULL RETURNING id",
+            event_id
+        )
+        return changed is not None
+
+
+async def set_discord_event_id(event_id: int, discord_event_id: int | None):
+    async with get_connection() as conn:
+        await conn.execute(
+            "UPDATE events SET discord_event_id = $2 WHERE id = $1",
+            event_id, discord_event_id
+        )
+
+
+async def advance_choice(event_id: int, expected_choice: int, final_start, final_end) -> bool:
+    """Moves to the next backup time. False if someone already rescheduled from this choice."""
+    async with get_connection() as conn:
+        changed = await conn.fetchval(
+            """
+            UPDATE events
+            SET choice = choice + 1, final_start = $3, final_end = $4
+            WHERE id = $1 AND status = 'final' AND choice = $2
+            RETURNING id
+            """,
+            event_id, expected_choice, final_start, final_end
+        )
+        return changed is not None
