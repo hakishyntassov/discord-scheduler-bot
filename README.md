@@ -8,7 +8,11 @@ A Discord bot that helps you and your friends coordinate schedules and organize 
 - **Collaborative scheduling**: Find the optimal time that works for all participants
 - **Flexible time ranges**: Set custom start and end dates for availability collection
 - **Smart participant selection**: Target specific roles, users, or everyone in the channel
-- **DM-based availability**: Participants submit their availability privately through DMs
+- **In-channel picker**: Participants tap their free hours on a private button grid right in the channel, no DMs
+- **Hidden until the reveal**: Nobody sees anyone's picks until everyone answers (or the creator hits Lock it in)
+- **Peek**: Once you've answered you can privately preview the current best time
+- **Runner-ups**: One backup per day, the longest stretch that day
+- **Reschedule**: If the winning day falls through, the creator can move to the next runner-up (and the Discord event moves with it)
 - **Automatic overlap detection**: The bot finds the best time slots that work for everyone
 - **Real-time status tracking**: See who has joined and submitted their availability
 
@@ -73,7 +77,7 @@ A Discord bot that helps you and your friends coordinate schedules and organize 
 ### Creating a Schedule Event
 
 ```
-/schedule title:"Team Gaming Session" start:"Monday" end:"Sunday" role:@gamers
+/schedule title:"Team Gaming Session" start:"Monday" end:"Sunday" hours:"6pm-2am" role:@gamers
 ```
 
 This creates a week-long scheduling poll where members with the @gamers role can submit their availability.
@@ -82,10 +86,10 @@ This creates a week-long scheduling poll where members with the @gamers role can
 - `title` (required): Name of the event
 - `start` (required): Start date for availability collection
 - `end` (optional): End date (defaults to 6 days after start)
+- `hours` (optional): Hours shown each day, like `10am-12am` or `6pm-2am` (default `10am-12am`, max 20 hours)
 - `role` (optional): Target specific role
 - `users` (optional): Target specific users with mentions
 - `description` (optional): Event description
-- `location` (optional): Event location
 
 ### Creating an RSVP Event
 
@@ -112,10 +116,12 @@ discord-scheduler-bot/
 ├── bot.py              # Main bot file with command handlers
 ├── config.py           # Configuration and environment variables
 ├── database.py         # Database operations and models
+├── scheduling.py       # Slot ranking and hour window logic
 ├── time_parse.py       # Natural language time parsing utilities
 ├── requirements.txt    # Python dependencies
 └── views/
-    └── views.py        # Discord UI components (buttons, embeds)
+    ├── views.py           # RSVP buttons
+    └── schedule_views.py  # /schedule picker grid, peek, reveal
 ```
 
 ## Technologies Used

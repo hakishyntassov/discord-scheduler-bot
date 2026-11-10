@@ -1,10 +1,16 @@
 import re, discord, logging
 from discord.ext import commands
 from config import TOKEN
-from views.views import ScheduleView, rsvpView
-from time_parse import parse_time, parse_dur
-from datetime import timedelta, timezone, datetime
-from database import init_db, add_event
+from views.views import rsvpView
+from views.schedule_views import (
+    PickTimesButton, PeekButton, LockInButton, AddEventButton, RescheduleButton,
+    build_open_embed, open_view,
+)
+from time_parse import parse_time, parse_dur, parse_day
+from datetime import timedelta, timezone, datetime, time as dtime
+from database import init_db, add_event, create_schedule_event, get_event
+from scheduling import TZ, parse_hour_window
+from config import DEFAULT_HOURS, MAX_DAYS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,11 +25,17 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix='$', intents=intents)
 
-@bot.event
-async def on_ready():
+async def setup_hook():
     await init_db()
     logger.info("Database initialized")
+    # lets the schedule buttons keep working after the bot restarts
+    bot.add_dynamic_items(PickTimesButton, PeekButton, LockInButton, AddEventButton, RescheduleButton)
     await bot.tree.sync()
+
+bot.setup_hook = setup_hook
+
+@bot.event
+async def on_ready():
     logger.info("Application ID: %s", bot.application_id)
     logger.info("Logged in as %s", bot.user)
 
@@ -145,31 +157,49 @@ async def rsvp(interaction: discord.Interaction,
     )
     await message.edit(embed=embed, view=view)
 
-@bot.tree.command(name="schedule", description="Schedule an event")
+@bot.tree.command(name="schedule", description="Find the best time for a group")
+@discord.app_commands.describe(
+    title="What's the event",
+    start="First day to consider, like 'friday' or 'nov 20'",
+    end="Last day to consider (defaults to a week)",
+    hours="Hours to show each day, like '10am-12am' or '6pm-2am'",
+    role="Who to schedule with",
+    users="Or @ specific people",
+)
 @discord.app_commands.checks.cooldown(1, 30.0, key=lambda i: i.user.id)
 async def schedule(interaction: discord.Interaction,
                    title: str,
                    start: str,
                    end: str | None = None,
+                   hours: str | None = None,
                    role: discord.Role | None = None,
                    users: str | None = None,
-                   description: str | None = None,
-                   location: str | None = None):
+                   description: str | None = None):
+    # HOURS (checked before deferring so errors can be private)
+    try:
+        day_start_hour, day_end_hour = parse_hour_window(hours or DEFAULT_HOURS)
+    except ValueError as e:
+        await interaction.response.send_message(f"> {e}", ephemeral=True)
+        return
     await interaction.response.defer()
+
     # PERIOD
-    start_base = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    start_date = await parse_time(start, start_base)
-    logger.debug("schedule start_date: %s", start_date)
-    formatted_time = discord.utils.format_dt(start_date, style='F')
-    if end:
-        end_base = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
-        end_date = await parse_time(end, end_base)
-    else:
-        end_date = start_date + timedelta(days=6, hours=23, minutes=59, seconds=59)
-    if start_date > end_date:
-        end_date = end_date + timedelta(days=7)
-    logger.debug("schedule end_date: %s", end_date)
-    end_date_formatted = discord.utils.format_dt(end_date, style='F')
+    base = datetime.now(TZ).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+    start_day = await parse_day(start, base)
+    end_day = await parse_day(end, base) if end else None
+    if start_day is None or (end and end_day is None):
+        await interaction.followup.send("> I couldn't read those dates, try something like `friday` or `nov 20`.", ephemeral=True)
+        return
+    if end_day is None:
+        end_day = start_day + timedelta(days=6)
+    if end_day < start_day:
+        end_day = end_day + timedelta(days=7)
+    if (end_day - start_day).days + 1 > MAX_DAYS:
+        await interaction.followup.send(f"> That's too many days, max is {MAX_DAYS}.", ephemeral=True)
+        return
+    start_timep = datetime.combine(start_day, dtime(0, 0), tzinfo=TZ)
+    end_timep = datetime.combine(end_day, dtime(23, 59, 59), tzinfo=TZ)
+
     # PARTICIPANTS
     channel = interaction.channel
     participants = set()
@@ -183,68 +213,29 @@ async def schedule(interaction: discord.Interaction,
                 participants.add(member)
     if (role is None) and (users is None):
         participants.update(m for m in channel.members if not m.bot)
-    # DESCRIPTION
-    if description is None:
-        description = f"This event was created by <@{interaction.user.id}>"
-    # LOCATION
-    if location is None:
-        location = "Not specified"
-    # EMBED
-    embed = discord.Embed(
-        title=f"Event: **{title}**",
-        description=(
-            f"{description}\n\n"
-            "**How it works**\n"
-            "> In your DM, select the days/times\n"
-            "> I will find the best time\n"
-            "> Results will be posted here\n"
-        ),
-        color=discord.Color.blurple()
-    )
-    # PERIOD FIELD
-    embed.add_field(
-        name="**Schedule Period**",
-        value=f">>> From: {formatted_time}\nTo: {end_date_formatted}",
-        inline=False
-    )
-    # LOCATION FIELD
-    embed.add_field(
-        name="**Location**",
-        value=f"> {location}",
-        inline=False
-    )
-    # PARTICIPANTS FIELD
-    embed.add_field(
-        name="**Participants**",
-        value=f"> {','.join(m.mention for m in participants)}",
-        inline=False
-    )
-    # JOINED LIST
-    embed.add_field(
-        name="🧙‍♂️ Joined",
-        value="",
-        inline=False
-    )
-    # SUBMITTED LIST
-    embed.add_field(
-        name="☑️ Submitted",
-        value="",
-        inline=False
-    )
-    message = await interaction.followup.send(f"> {','.join(m.mention for m in participants)} Submit your availability in your DMs :)", wait=True)
-    # EMBED
-    event_id = await add_event(
+    if not participants:
+        await interaction.followup.send("> Nobody to schedule with, try a role or some @mentions.", ephemeral=True)
+        return
+
+    mentions = ",".join(m.mention for m in participants)
+    message = await interaction.followup.send(f"> {mentions} pick your times below :)", wait=True)
+    event_id = await create_schedule_event(
         title=title,
         channel_id=interaction.channel.id,
         guild_id=interaction.guild.id,
         message_id=message.id,
-        count_members=len(participants),
-        start_timep=start_date,
-        end_timep=end_date
+        creator_id=interaction.user.id,
+        description=description,
+        location=None,
+        start_timep=start_timep,
+        end_timep=end_timep,
+        day_start_hour=day_start_hour,
+        day_end_hour=day_end_hour,
+        participant_ids=[m.id for m in participants],
     )
-    # BUTTONS
-    view = ScheduleView(title=title, event_id=event_id, channel_id=channel.id, participants=participants, location=location)
-    await message.edit(embed=embed, view=view)
+    event = await get_event(event_id)
+    embed = build_open_embed(event, [m.id for m in participants], [])
+    await message.edit(embed=embed, view=open_view(event_id))
     logger.info("Created schedule event '%s' (id=%s) in guild %s", title, event_id, interaction.guild.id)
 
 bot.run(TOKEN) # RUN THE BOT
